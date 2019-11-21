@@ -4,7 +4,9 @@
     "license": "Apache-2.0",
     "require": {
         "php": "^7.1",
-        "phan/phan": "^2.4"
+        "phan/phan": "^2.4",
+        "psr/cache": "^1.0",
+        "cache/adapter-common": "^1.0"
     },
     "authors": [
         {

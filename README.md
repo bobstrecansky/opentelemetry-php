@@ -18,37 +18,9 @@ The recommended way to install the library is through [Composer](http://getcompo
 $ composer require open-telemetry/opentelemetry
 ```
 
-## Tracing
-Library is under active development, but simple example should be present in readme.  
-In addition, see tracing tests for full-featured example.
-```php
-<?php
+### Examples
 
-use OpenTelemetry\Tracing\Builder;
-use OpenTelemetry\Tracing\SpanContext;
-
-$spanContext = SpanContext::generate(); // or extract from headers
-
-$tracer = Builder::create()->setSpanContext($spanContext)->getTracer();
-
-// start a span, register some events
-$span = $tracer->createSpan('session.generate');
-
-// set attributes as array
-$span->setAttributes([ 'remote_ip' => '5.23.99.245' ]);
-// set attribute one by one
-$span->setAttribute('country', 'Russia');
-
-$span->addEvent('found_login', [
-  'id' => 67235,
-  'username' => 'nekufa',
-]);
-$span->addEvent('generated_session', [
-  'id' => md5(microtime(true))
-]);
-
-$span->end(); // pass status as an optional argument
-```
+You can use the [examples/ExampleTrace.php](https://github.com/open-telemetry/opentelemetry-php/tree/master/examples/exampleTrace.php) file to test out the reference implementation we have.  This can be easily executed with docker by running `./resources/example-using-docker` from the root of the repository.
 
 ## Static Analysis
 We use [Phan](https://github.com/phan/phan/) for static analysis.  Currently our phan configuration is just set with a standard default analysis configuration.  You can use our phan docker hook to easily perform static analysis on your changes:
