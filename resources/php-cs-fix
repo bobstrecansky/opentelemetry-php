@@ -1,0 +1,14 @@
+#!/bin/bash
+ROOT=$(git rev-parse --show-toplevel)
+CHANGED_FILES=$(git diff --name-only --diff-filter=d "${TRAVIS_COMMIT_RANGE}")
+    if ! echo "${CHANGED_FILES}" | grep -qE "^(\\.php_cs(\\.dist)?|composer\\.lock)$"; then
+        EXTRA_ARGS=$(printf -- '--path-mode=intersection\n--\n%s' "${CHANGED_FILES}")
+    else
+        EXTRA_ARGS='';
+    fi
+
+echo "root of directory: " $ROOT
+echo "changed files: " $CHANGED_FILES
+echo "extra arguments: " $EXTRA_ARGS
+
+$ROOT/vendor/bin/php-cs-fixer fix --config=.php_cs -v --dry-run --stop-on-violation --using-cache=no ${EXTRA_ARGS}
