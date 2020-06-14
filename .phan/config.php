@@ -358,6 +358,7 @@ return [
     'directory_list' => [
         'api',
         'sdk',
+        'Context',
         'vendor/composer/xdebug-handler/src',
         'vendor/guzzlehttp',
         'vendor/phan/phan/src/Phan',

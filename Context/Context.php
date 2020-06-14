@@ -9,7 +9,7 @@ class Context
     /**
      * @var ContextKey|null
      */
-    private $key;
+    protected $key;
 
     /**
      * @var mixed|null
@@ -19,7 +19,7 @@ class Context
     /**
      * @var Context|null
      */
-    private $parent;
+    protected $parent;
 
     private static $current_context = null;
 
@@ -111,7 +111,7 @@ class Context
      *
      * @return null
      */
-    protected function setParent(Context $parent)
+    public function setParent(Context $parent)
     {
         $this->parent = $parent;
     }

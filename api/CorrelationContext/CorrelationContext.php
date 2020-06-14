@@ -3,8 +3,8 @@
 declare(strict_types=1);
 
 namespace OpenTelemetry\CorrelationContext;
-
 use OpenTelemetry\Context\Context;
+use OpenTelemetry\Context\ContextKey;
 
 interface CorrelationContext
 {
