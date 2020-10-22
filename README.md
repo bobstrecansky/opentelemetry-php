@@ -1,4 +1,5 @@
 TEST
+FOO
 # OpenTelemetry php library
 [![Gitter](https://badges.gitter.im/open-telemetry/opentelemetry-php.svg)](https://gitter.im/open-telemetry/opentelemetry-php?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
 ![CI Build](https://github.com/open-telemetry/opentelemetry-php/workflows/PHP%20Composer/badge.svg)
