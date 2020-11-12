@@ -43,11 +43,8 @@ jobs:
       if: steps.composer-cache.outputs.cache-hit != 'true'
       run: composer install --prefer-dist --no-progress --no-suggest
 
-    - name: Dump GitHub context
-      run: echo "$GITHUB_CONTEXT"
-
-    - name: Dump Github event path
-      run: echo "$GITHUB_EVENT_PATH"
+    - name: Dump GitHub diff
+      run: git diff --name-only --diff-filter=AM ${{ github.event.before }} ${{ github.sha }}
 
     - name: Check Style
       run: .github/phpcs.sh
