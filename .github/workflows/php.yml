@@ -49,7 +49,10 @@ jobs:
 
     - name: Echo file changes
       run: |
-        echo Changed files: ${{ steps.get_file_changes.outputs.files }}
+        echo PHPCS_FILE_CHANGES=${{ steps.get_file_changes.outputs.files }}
+
+    - name: Echo env var
+      run: echo $PHPCS_FILE_CHANGES
 
     - name: Check Style
       run: .github/phpcs.sh
