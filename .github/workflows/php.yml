@@ -48,6 +48,11 @@ jobs:
         GITHUB_CONTEXT: ${{ toJson(github) }}
       run: echo "$GITHUB_CONTEXT"
 
+    - name: Dump Github event path
+      env:
+        GITHUB_EVENT_PATH: ${{ toJson(githubEventPath) }}
+      run: echo "$GITHUB_EVENT_PATH"
+
     - name: Check Style
       run: .github/phpcs.sh
 
