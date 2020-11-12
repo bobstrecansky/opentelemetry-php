@@ -44,7 +44,7 @@ jobs:
       run: echo $GITHUB_BASE_REF
 
     - name: set changed files env var
-      run: echo PHPCS_CHANGED_FILES=`(git pull origin master --rebase) && (git diff --name-only origin/$GITHUB_BASE_REF)`
+      run: echo PHPCS_CHANGED_FILES=`(git pull origin master --ff) && (git diff --name-only origin/$GITHUB_BASE_REF)`
 
     - name: Test
       run: echo $PHPCS_CHANGED_FILES
