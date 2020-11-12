@@ -18,6 +18,11 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+    - uses: jitterbit/get-changed-files@v1
+      id: changed_files
+      with:
+        format: space-delimited
+        token: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Setup PHP
       uses: shivammathur/setup-php@v2
@@ -42,6 +47,10 @@ jobs:
     - name: Install dependencies
       if: steps.composer-cache.outputs.cache-hit != 'true'
       run: composer install --prefer-dist --no-progress --no-suggest
+
+    - name: set changed files env var
+      env:
+        CHANGED_FILES: ${{ steps.changed_files.outputs.all }}
 
     - name: Check Style
       run: .github/phpcs.sh
