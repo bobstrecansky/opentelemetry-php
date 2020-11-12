@@ -41,11 +41,8 @@ jobs:
       run: composer install --prefer-dist --no-progress --no-suggest
 
     - name: set changed files env var
-      run: echo $PHPCS_CHANGED_FILES
-      env:
-        PHPCS_CHANGED_FILES: $(git diff --name-only "$GITHUB_BASE_REF..$GITHUB_SHA")
-
-
+      run: |
+        echo ::set-env name= PHPCS_CHANGED_FILES::$(git diff --name-only "$GITHUB_BASE_REF..$GITHUB_SHA")
     - name: Check Style
       run: .github/phpcs.sh
 
