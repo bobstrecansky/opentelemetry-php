@@ -44,10 +44,10 @@ jobs:
       run: echo $GITHUB_BASE_REF
 
     - name: set changed files env var
-      run: PHPCS_CHANGED_FILES=`(git pull origin master --ff 1&>/dev/null && git diff --name-only origin/master)`
+      run: PHPCS_CHANGED_FILES=`(git pull origin master --ff 1&>/dev/null && git diff --name-only origin/master)` >> $GITHUB_ENV
 
     - name: Test
-      run: echo $PHPCS_CHANGED_FILES
+      run: echo env.PHPCS_CHANGED_FILES
 
     - name: Check Style
       run: .github/phpcs.sh
