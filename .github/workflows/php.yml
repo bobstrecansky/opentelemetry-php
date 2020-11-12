@@ -43,7 +43,7 @@ jobs:
     - name: set changed files env var
       run: |
         echo 'PHPCS_CHANGED_FILES<<EOF' >> $GITHUB_ENV
-        git diff --name-only '$GITHUB_BASE_REF..$GITHUB_SHA')" >> $GITHUB_ENV
+        git diff --name-only "${GITHUB_BASE_REF}..${GITHUB_SHA}" >> $GITHUB_ENV
         echo 'EOF' >> $GITHUB_ENV
     - name: Check Style
       run: .github/phpcs.sh
