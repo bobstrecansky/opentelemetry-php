@@ -40,8 +40,14 @@ jobs:
       if: steps.composer-cache.outputs.cache-hit != 'true'
       run: composer install --prefer-dist --no-progress --no-suggest
 
+    - name: GITHUB BASE REF
+      run: echo $GITHUB_BASE_REF
+
+    - name: GITHUB SHA
+      run: echo $GITHUB_SHA
+
     - name: set changed files env var
-      run: echo "PHPCS_CHANGED_FILES=$(git diff --name-only '$GITHUB_BASE_REF..$GITHUB_SHA')" >> $GITHUB_ENV
+      run: echo "PHPCS_CHANGED_FILES=$(git diff --name-only $GITHUB_BASE_REF $GITHUB_SHA)" >> $GITHUB_ENV
 
     - name Test
       run: echo ${{ env.PHPCS_CHANGED_FILES }}
