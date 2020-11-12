@@ -1,5 +1,5 @@
 #!/bin/bash
-CHANGED_FILES=$(git diff --name-only --diff-filter=ACMRTUXB master)
+CHANGED_FILES=$(git diff --name-only --diff-filter=ACMRTUXB $PHPCS_CHANGED_FILES)
 GIT_ROOT_DIR=$(git rev-parse --show-toplevel)
 
 if ! echo "${CHANGED_FILES}" | grep -qE "^(\\.php_cs(\\.dist)?|composer\\.lock)$"; then
