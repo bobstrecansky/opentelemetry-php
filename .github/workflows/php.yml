@@ -43,8 +43,10 @@ jobs:
       if: steps.composer-cache.outputs.cache-hit != 'true'
       run: composer install --prefer-dist --no-progress --no-suggest
 
-    - name: Dump GitHub vars
-      run: echo ${{ github.event.pull_request.base.ref }} && echo ${{ github.event.pull_request.base.sha }} && echo ${{ github.event.base_ref }} && echo ${{ github.event.before }}
+    - name: Create Commit Range env var
+      env:
+        COMMIT_RANGE: ${{ github.event.pull_request.base.ref }}
+      run: echo $COMMIT_RANGE
 
     - name: Check Style
       run: .github/phpcs.sh
