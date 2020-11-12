@@ -42,7 +42,7 @@ jobs:
 
     - name: set changed files env var
       run: |
-        echo ::set-env name= PHPCS_CHANGED_FILES::$(git diff --name-only "$GITHUB_BASE_REF..$GITHUB_SHA")
+        echo 'git diff --name-only "$GITHUB_BASE_REF..$GITHUB_SHA")' >> $PHPCS_CHANGED_FILES
     - name: Check Style
       run: .github/phpcs.sh
 
