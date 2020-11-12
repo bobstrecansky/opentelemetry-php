@@ -50,7 +50,7 @@ jobs:
 
     - name: Dump Github event path
       env:
-        GITHUB_EVENT_PATH: ${{ toJson(githubEventPath) }}
+        GITHUB_EVENT_PATH: ${{ toJson(github_event_path) }}
       run: echo "$GITHUB_EVENT_PATH"
 
     - name: Check Style
