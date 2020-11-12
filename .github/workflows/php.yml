@@ -44,7 +44,7 @@ jobs:
       run: composer install --prefer-dist --no-progress --no-suggest
 
     - name: Dump GitHub diff
-      run: git diff --name-only --diff-filter=AM ${{ github.event.before }} ${{ github.sha }}
+      run: git diff --name-only --diff-filter=AM ${{ github.event.before }} 
 
     - name: Check Style
       run: .github/phpcs.sh
