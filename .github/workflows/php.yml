@@ -40,14 +40,16 @@ jobs:
       if: steps.composer-cache.outputs.cache-hit != 'true'
       run: composer install --prefer-dist --no-progress --no-suggest
 
-    - name: GITHUB BASE REF
-      run: echo $GITHUB_BASE_REF
+    - name: Get file changes
+      id: get_file_changes
+      uses: dorner/file-changes-action@v1.2.0
+      with:
+        githubToken: ${{ secrets.GITHUB_TOKEN }}
+        plaintext: true
 
-    - name: set changed files env var
-      run: PHPCS_CHANGED_FILES=`(git pull origin master --ff 1&>/dev/null && git diff --name-only origin/master)` >> $GITHUB_ENV
-
-    - name: Test
-      run: echo env.PHPCS_CHANGED_FILES
+    - name: Echo file changes
+      run: |
+        echo Changed files: ${{ steps.get_file_changes.outputs.files }}
 
     - name: Check Style
       run: .github/phpcs.sh
