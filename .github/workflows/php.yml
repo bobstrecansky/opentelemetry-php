@@ -40,22 +40,8 @@ jobs:
       if: steps.composer-cache.outputs.cache-hit != 'true'
       run: composer install --prefer-dist --no-progress --no-suggest
 
-    - name: Get file changes
-      id: get_file_changes
-      uses: dorner/file-changes-action@v1.2.0
-      with:
-        githubToken: ${{ secrets.GITHUB_TOKEN }}
-        plaintext: true
-
-    - name: Echo file changes
-      run: |
-        echo PHPCS_CHANGED_FILES=${{ steps.get_file_changes.outputs.files }}
-
-    - name: Echo env var
-      run: echo $PHPCS_CHANGED_FILES
-
     - name: Check Style
-      run: .github/phpcs.sh
+      run: vendor/bin/php-cs-fixer fix --config=.php_cs -v --dry-run --stop-on-violation --using-cache=no
 
     - name: Run Phan
       env:
