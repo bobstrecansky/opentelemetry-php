@@ -50,7 +50,7 @@ jobs:
       run: echo "PHPCS_CHANGED_FILES=$(git diff --name-only $GITHUB_BASE_REF $GITHUB_SHA)" >> $GITHUB_ENV
 
     - name Test
-      run: echo ${{ env.PHPCS_CHANGED_FILES }}
+      run: echo $PHPCS_CHANGED_FILES
 
     - name: Check Style
       run: .github/phpcs.sh
