@@ -42,7 +42,7 @@ jobs:
 
     - name: set changed files env var
       env:
-        CHANGED_FILES: git diff --name-only "$GITHUB_BASE_REF..$GITHUB_SHA"
+        CHANGED_FILES: $(git diff --name-only "$GITHUB_BASE_REF..$GITHUB_SHA")
       run: echo $CHANGED_FILES
 
     - name: Check Style
