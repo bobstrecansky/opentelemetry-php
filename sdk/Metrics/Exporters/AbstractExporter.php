@@ -19,7 +19,7 @@ abstract class AbstractExporter implements API\Exporter
             return API\Exporter::SUCCESS;
         }
 
-        try {
+            try {
             foreach ($metrics as $metric) {
                 if (! $metric instanceof API\Metric) {
                     throw new \InvalidArgumentException('Metric must implement ' . API\Metric::class);
