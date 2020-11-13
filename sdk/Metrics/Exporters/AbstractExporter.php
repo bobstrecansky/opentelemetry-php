@@ -16,10 +16,10 @@ abstract class AbstractExporter implements API\Exporter
     public function export(iterable $metrics): int
     {
         if (empty($metrics)) {
-            return API\Exporter::SUCCESS;
+                return API\Exporter::SUCCESS;
         }
 
-            try {
+        try {
             foreach ($metrics as $metric) {
                 if (! $metric instanceof API\Metric) {
                     throw new \InvalidArgumentException('Metric must implement ' . API\Metric::class);

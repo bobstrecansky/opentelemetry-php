@@ -6,7 +6,7 @@ namespace OpenTelemetry\Trace;
 
 interface Event
 {
-      public function getName(): string;
+    public function getName(): string;
     public function getAttributes(): Attributes;
     public function getTimestamp(): int;
 }
