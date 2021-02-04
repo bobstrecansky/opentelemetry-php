@@ -19,7 +19,7 @@ trace examples: FORCE
 	$(DC_RUN_PHP) php ./examples/AlwaysOnZipkinExample.php
 	$(DC_RUN_PHP) php ./examples/AlwaysOffTraceExample.php
 	$(DC_RUN_PHP) php ./examples/AlwaysOnJaegerExample.php
-trace troubleshooting: FORCE
+troubleshoot: FORCE
 	docker-compose up -d
 	$(DC_RUN_PHP) php ./examples/Troubleshooting.php
 metrics-prometheus-example:

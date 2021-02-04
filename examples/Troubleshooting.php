@@ -42,21 +42,14 @@ if (SamplingResult::RECORD_AND_SAMPLED === $samplingResult->getDecision()) {
     //Span three opens here
     $span = $tracer->startAndActivateSpan('three');
 
-    //Get the Trace id and last active span Id
+    //Get the Trace id and last active span Id (span 'three')
     $traceId = $span->getContext()->getTraceId();
-    $spanId =$span->getContext()->getSpanId();
+    $spanId = $span->getContext()->getSpanId();
 
-    //Span three ends here
-    $tracer->endActiveSpan();
-
-    //Span two ends here
-    $tracer->endActiveSpan();
-
-    //Span one end here
-    $tracer->endActiveSpan();
-
-    echo "Trace ID : ".$traceId;
-    echo "Span ID : ".$spanId;
+    echo PHP_EOL;
+    echo 'Trace ID : ' . $traceId;
+    echo PHP_EOL;
+    echo 'Span ID : ' . $spanId;
 
     //Creating a parent based span using the Trace ID and the Id of the third Span
     //So parent-based span should come under third span, not as a root span
@@ -72,14 +65,23 @@ if (SamplingResult::RECORD_AND_SAMPLED === $samplingResult->getDecision()) {
         $parentContext,
         $traceId,
         $spanId,
-        'one',
+        'parent-based',
         API\SpanKind::KIND_INTERNAL
     );
 
-    $span = $tracer->startAndActivateSpanFromContext('parent-based', $parentContext, true) ;
+    $span = $tracer->startAndActivateSpanFromContext('parent-based', $parentContext, true);
     $tracer->endActiveSpan();
 
 
+    //Span three ends here
+    $tracer->endActiveSpan();
+
+    //Span two ends here
+    $tracer->endActiveSpan();
+
+    //Span one end here
+    $tracer->endActiveSpan();
+    
     echo PHP_EOL . 'AlwaysOnJaegerExample complete!  See the results at http://localhost:16686/';
 } else {
     echo PHP_EOL . 'AlwaysOnJaegerExample tracing is not enabled';
