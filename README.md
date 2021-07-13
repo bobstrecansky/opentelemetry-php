@@ -1,3 +1,6 @@
+Bob
+Oliver
+
 # OpenTelemetry php library
 
 ![CI Build](https://github.com/open-telemetry/opentelemetry-php/workflows/PHP%20Composer/badge.svg)
