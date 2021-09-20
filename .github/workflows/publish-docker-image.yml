@@ -27,4 +27,4 @@ jobs:
         with:
           push: true
           file: docker/Dockerfile
-          tags: ghcr.io/open-telemetry/opentelemetry-php/opentelemetry-php-base:latest
+          tags: ghcr.io/bobstrecansky/opentelemetry-php/opentelemetry-php-base:latest
