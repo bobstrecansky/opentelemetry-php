@@ -4,15 +4,17 @@ declare(strict_types=1);
 
 namespace OpenTelemetry\Contrib\ZipkinToNewrelic;
 
-use GuzzleHttp\Psr7\Request;
-use Http\Adapter\Guzzle7\Client;
+use Exception;
+use GuzzleHttp\Client;
+use GuzzleHttp\Psr7\HttpFactory;
 use InvalidArgumentException;
 use OpenTelemetry\Sdk\Trace;
-use OpenTelemetry\Trace as API;
 use Psr\Http\Client\ClientExceptionInterface;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Client\NetworkExceptionInterface;
 use Psr\Http\Client\RequestExceptionInterface;
+use Psr\Http\Message\RequestFactoryInterface;
+use Psr\Http\Message\StreamFactoryInterface;
 
 /**
  * Class ZipkinExporter - implements the export interface for data transfer via Zipkin protocol
@@ -49,12 +51,29 @@ class Exporter implements Trace\Exporter
      */
     private $client;
 
+    /**
+     * @var RequestFactoryInterface
+     */
+    private $requestFactory;
+
+    /**
+     * @var StreamFactoryInterface
+     */
+    private $streamFactory;
+
+    /**
+    * @var string
+    */
+    private $name;
+
     public function __construct(
         $name,
         string $endpointUrl,
         string $licenseKey,
-        SpanConverter $spanConverter = null,
-        ClientInterface $client = null
+        ClientInterface $client,
+        RequestFactoryInterface $requestFactory,
+        StreamFactoryInterface $streamFactory,
+        SpanConverter $spanConverter = null
     ) {
         $parsedDsn = parse_url($endpointUrl);
 
@@ -69,16 +88,19 @@ class Exporter implements Trace\Exporter
             throw new InvalidArgumentException('Endpoint should have scheme, host, port and path');
         }
 
-        $this->licenseKey = $licenseKey;
+        $this->name = $name;
         $this->endpointUrl = $endpointUrl;
-        $this->client = $client ?? $this->createDefaultClient();
+        $this->licenseKey = $licenseKey;
+        $this->client = $client;
+        $this->requestFactory = $requestFactory;
+        $this->streamFactory = $streamFactory;
         $this->spanConverter = $spanConverter ?? new SpanConverter($name);
     }
 
     /**
      * Exports the provided Span data via the Zipkin protocol
      *
-     * @param iterable<API\Span> $spans Array of Spans
+     * @param iterable<Trace\ReadableSpan> $spans Array of Spans
      * @return int return code, defined on the Exporter interface
      */
     public function export(iterable $spans): int
@@ -97,23 +119,21 @@ class Exporter implements Trace\Exporter
         }
 
         try {
-            $json = json_encode($convertedSpans);
-            $headers = ['content-type' => 'application/json',
-                        'Api-Key' => $this->licenseKey,
-                        'Data-Format' => 'zipkin',
-                        'Data-Format-Version' => '2', ];
-            $request = new Request('POST', $this->endpointUrl, $headers, $json);
+            $body = $this->streamFactory->createStream(json_encode($convertedSpans));
+            $request = $this->requestFactory
+                ->createRequest('POST', $this->endpointUrl)
+                ->withBody($body)
+                ->withHeader('content-type', 'application/json')
+                ->withAddedHeader('Api-Key', $this->licenseKey)
+                ->withAddedHeader('Data-Format', 'zipkin')
+                ->withAddedHeader('Data-Format-Version', '2');
+
             $response = $this->client->sendRequest($request);
         } catch (RequestExceptionInterface $e) {
             return Trace\Exporter::FAILED_NOT_RETRYABLE;
         } catch (NetworkExceptionInterface | ClientExceptionInterface $e) {
             return Trace\Exporter::FAILED_RETRYABLE;
         }
-
-        $statusCode = $response->getStatusCode();
-        $reason = $response->getReasonPhrase();
-        echo "\nsendRequest response = " . $statusCode . "\n";
-        echo "\nsendRequest response = " . $reason . "\n";
 
         if ($response->getStatusCode() >= 400 && $response->getStatusCode() < 500) {
             return Trace\Exporter::FAILED_NOT_RETRYABLE;
@@ -131,10 +151,21 @@ class Exporter implements Trace\Exporter
         $this->running = false;
     }
 
-    protected function createDefaultClient(): ClientInterface
+    public static function fromConnectionString(string $endpointUrl, string $name, $args)
     {
-        return Client::createWithConfig([
-            'timeout' => 30,
-        ]);
+        if ($args == false) {
+            throw new Exception('Invalid license key.');
+        }
+        $factory = new HttpFactory();
+        $exporter = new Exporter(
+            $name,
+            $endpointUrl,
+            $args,
+            new Client(),
+            $factory,
+            $factory
+        );
+
+        return $exporter;
     }
 }

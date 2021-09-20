@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace OpenTelemetry\Sdk\Trace;
 
 use OpenTelemetry\Context\Context;
+use OpenTelemetry\Sdk\InstrumentationLibrary;
 use OpenTelemetry\Sdk\Resource\ResourceInfo;
 use OpenTelemetry\Trace as API;
 
@@ -14,23 +15,33 @@ class Tracer implements API\Tracer
     private $spans = [];
     private $tail = [];
 
-    /** @var TracerProvider  */
+    /** @var TracerProvider */
     private $provider;
+
     /** @var ResourceInfo */
     private $resource;
-    /** @var API\SpanContext|null  */
+
+    /** @var InstrumentationLibrary */
+    private $instrumentationLibrary;
+
+    /** @var API\SpanContext|null */
     private $importedContext;
 
     public function __construct(
         TracerProvider $provider,
+        InstrumentationLibrary $instrumentationLibrary,
         ResourceInfo $resource = null,
         API\SpanContext $context = null
     ) {
         $this->provider = $provider;
+        $this->instrumentationLibrary = $instrumentationLibrary;
         $this->resource = $resource ?? ResourceInfo::emptyResource();
         $this->importedContext = $context;
     }
 
+    /**
+     * @return Span|NoopSpan
+     */
     public function startSpan(
         string $name,
         ?Context $parentContext = null,
@@ -39,8 +50,8 @@ class Tracer implements API\Tracer
         ?API\Links $links = null,
         ?int $startTimestamp = null
     ): API\Span {
-        $parentSpan = $parentContext !== null ? Span::extract($parentContext) : Span::getCurrent();
-        $parentSpanContext = $parentSpan !== null ? $parentSpan->getContext() : SpanContext::getInvalid();
+        $parentSpan = $parentContext !== null ? Span::fromContext($parentContext) : Span::getCurrent();
+        $parentSpanContext = $parentSpan->getContext();
 
         /**
          * Implementations MUST generate a new TraceId for each root span created.
@@ -61,8 +72,8 @@ class Tracer implements API\Tracer
         $attributes = $attributes ?? new Attributes();
         $sampleAttributes = $sampleResult->getAttributes();
         if ($sampleAttributes !== null) {
-            foreach ($sampleAttributes as $name => $value) {
-                $attributes->setAttribute($name, $value);
+            foreach ($sampleAttributes as $attrName => $value) {
+                $attributes->setAttribute($attrName, $value->getValue());
             }
         }
 
@@ -78,17 +89,24 @@ class Tracer implements API\Tracer
             $name,
             $spanContext,
             $parentSpanContext,
-            $this->provider->getSampler(),
             $this->resource,
             $spanKind,
-            $this->provider->getSpanProcessor()
+            $attributes,
+            $links,
+            $this->provider->getSpanProcessor(),
+            $this->provider->getSpanLimits()
         );
+
+        $span->setInstrumentationLibrary($this->instrumentationLibrary);
 
         $this->provider->getSpanProcessor()->onStart($span, $parentContext ?? Context::getCurrent());
 
         return $span;
     }
 
+    /**
+     * @return Span|NoopSpan
+     */
     public function getActiveSpan(): API\Span
     {
         while (count($this->tail) && ($this->active->ended())) {
@@ -103,22 +121,28 @@ class Tracer implements API\Tracer
         $this->tail[] = $this->active;
 
         $this->active = $span;
+
+        // FIXME: This should either be called manually or as part of a dedicated tracer operation,
+        // probably some sort of `inSpan` method?
+        $span->activate();
     }
 
     /**
-     * @param string $name
-     * @param API\SpanContext $parentContext
-     * @param bool $isRemote
-     * @param int $spanKind
-     * @return Span
+     * @psalm-return Span
+     * @return Span|NoopSpan
      */
-
-    public function startActiveSpan(string $name, API\SpanContext $parentContext, bool $isRemote = false, int $spanKind = API\SpanKind::KIND_INTERNAL): API\Span
-    {
+    public function startActiveSpan(
+        string $name,
+        API\SpanContext $parentContext,
+        bool $isRemote = false,
+        int $spanKind = API\SpanKind::KIND_INTERNAL,
+        ?API\Attributes $attributes = null,
+        ?API\Links $links = null
+    ): API\Span {
         $parentContextIsNoopSpan = !$parentContext->isValid();
 
         if ($parentContextIsNoopSpan) {
-            $parentContext = $this->importedContext ?? SpanContext::generate(true);
+            $parentContext = $this->importedContext ?? SpanContext::fork($this->provider->getIdGenerator()->generateTraceId(), true);
         }
 
         /*
@@ -129,18 +153,29 @@ class Tracer implements API\Tracer
         // When attributes and links are coded, they will need to be passed in here.
         $sampler = $this->provider->getSampler();
         $samplingResult = $sampler->shouldSample(
-            Span::insert(new NoopSpan($parentContext), new Context()),
+            (new Context())->withContextValue(new NoopSpan($parentContext)),
             $parentContext->getTraceId(),
             $name,
-            $spanKind
+            $spanKind,
+            $attributes,
+            $links
         );
 
         $context = SpanContext::fork($parentContext->getTraceId(), $parentContext->isSampled(), $isRemote);
 
-        if (SamplingResult::DROP == $samplingResult->getDecision()) {
+        if (SamplingResult::DROP === $samplingResult->getDecision()) {
             $span = $this->generateSpanInstance('', $context);
         } else {
-            $span = $this->generateSpanInstance($name, $context, $parentContext, $sampler, $this->resource, $spanKind);
+            $span = $this->generateSpanInstance(
+                $name,
+                $context,
+                $parentContext,
+                $sampler,
+                $this->resource,
+                $spanKind,
+                $samplingResult->getAttributes(),
+                $links
+            );
 
             if ($span->isRecording()) {
                 $this->provider->getSpanProcessor()->onStart($span);
@@ -178,16 +213,23 @@ class Tracer implements API\Tracer
      * @param string $name
      * @param API\SpanContext $parentContext
      * @param bool $isRemote
-     * @return Span
+     * @psalm-return Span
+     * @return Span|NoopSpan
      */
-    public function startAndActivateSpanFromContext(string $name, API\SpanContext $parentContext, bool $isRemote = false, int $spanKind = API\SpanKind::KIND_INTERNAL): API\Span
-    {
+    public function startAndActivateSpanFromContext(
+        string $name,
+        API\SpanContext $parentContext,
+        bool $isRemote = false,
+        int $spanKind = API\SpanKind::KIND_INTERNAL,
+        ?API\Attributes $attributes = null,
+        ?API\Links $links = null
+    ): API\Span {
         /*
          * Pass in true if the SpanContext was propagated from a
          * remote parent. When creating children from remote spans,
          * their IsRemote flag MUST be set to false.
          */
-        return self::startActiveSpan($name, $parentContext, $isRemote, $spanKind);
+        return $this->startActiveSpan($name, $parentContext, $isRemote, $spanKind, $attributes, $links);
     }
     /* Span creation MUST NOT set the newly created Span as the currently active
  * Span by default, but this functionality MAY be offered additionally as a
@@ -213,42 +255,56 @@ class Tracer implements API\Tracer
      * todo: fix ^
      * -> Is there a reason we didn't add this already?
      * @param string $name
-     * @return Span
+     * @psalm-return Span
+     * @return Span|NoopSpan
      */
-    public function startAndActivateSpan(string $name, int $spanKind = API\SpanKind::KIND_INTERNAL): API\Span
-    {
+    public function startAndActivateSpan(
+        string $name,
+        int $spanKind = API\SpanKind::KIND_INTERNAL,
+        ?API\Attributes $attributes = null,
+        ?API\Links $links = null
+    ): API\Span {
         $parentContext = $this->getActiveSpan()->getContext();
 
-        return self::startActiveSpan($name, $parentContext, false, $spanKind);
+        return $this->startActiveSpan($name, $parentContext, false, $spanKind, $attributes, $links);
     }
 
     public function getSpans(): array
     {
         return $this->spans;
     }
+
     public function getResource(): ResourceInfo
     {
         return clone $this->resource;
     }
-    public function endActiveSpan(?int $timestamp = null)
-    {
-        /**
-         * a span should be ended before is sent to exporters, because the exporters need's span duration.
-         */
-        $span = $this->getActiveSpan();
-        $wasRecording = $span->isRecording();
-        $span->end();
 
-        if ($wasRecording) {
-            $this->provider->getSpanProcessor()->onEnd($span);
-        }
+    public function getTracerProvider(): TracerProvider
+    {
+        return $this->provider;
     }
 
-    private function generateSpanInstance(string $name, API\SpanContext $context, API\SpanContext $parentContext = null, Sampler $sampler = null, ResourceInfo $resource = null, int $spanKind = API\SpanKind::KIND_INTERNAL): API\Span
+    public function startSpanWithOptions(string $name): API\SpanOptions
     {
+        return new SpanOptions($this, $name, $this->provider->getSpanProcessor());
+    }
+
+    /**
+     * @return Span|NoopSpan
+     */
+    private function generateSpanInstance(
+        string $name,
+        API\SpanContext $context,
+        API\SpanContext $parentContext = null,
+        Sampler $sampler = null,
+        ResourceInfo $resource = null,
+        int $spanKind = API\SpanKind::KIND_INTERNAL,
+        ?API\Attributes $attributes = null,
+        ?API\Links $links = null
+    ): API\Span {
         $parent = null;
 
-        if (null == $sampler) {
+        if (null === $sampler) {
             $span = new NoopSpan($context);
         } else {
             if ($this->active) {
@@ -257,25 +313,22 @@ class Tracer implements API\Tracer
                 $parent = $parentContext;
             }
 
-            $span = new Span($name, $context, $parent, $sampler, $resource, $spanKind);
+            $span = new Span(
+                $name,
+                $context,
+                $parent,
+                $resource,
+                $spanKind,
+                $attributes,
+                $links,
+                $this->provider->getSpanProcessor()
+            );
+
+            $span->setInstrumentationLibrary($this->instrumentationLibrary);
         }
+
         $this->spans[] = $span;
 
         return $span;
-    }
-
-    public function startSpanWithOptions(string $name): API\SpanOptions
-    {
-        return new SpanOptions($this, $name);
-    }
-
-    public function finishSpan(API\Span $span, ?int $timestamp = null): void
-    {
-        // TODO: Implement finishSpan() method.
-    }
-
-    public function deactivateActiveSpan(): void
-    {
-        // TODO: Implement deactivateActiveSpan() method.
     }
 }

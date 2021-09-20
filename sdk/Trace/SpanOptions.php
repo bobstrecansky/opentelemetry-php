@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OpenTelemetry\Sdk\Trace;
 
+use OpenTelemetry\Context\Context;
 use OpenTelemetry\Trace as API;
 
 final class SpanOptions implements API\SpanOptions
@@ -23,10 +24,14 @@ final class SpanOptions implements API\SpanOptions
     /** @var int|null */
     private $start = null;
 
-    public function __construct(Tracer $tracer, string $name)
+    /** @var SpanProcessor|null */
+    private $spanProcessor;
+
+    public function __construct(Tracer $tracer, string $name, ?SpanProcessor $spanProcessor = null)
     {
         $this->tracer = $tracer;
         $this->name = $name;
+        $this->spanProcessor = $spanProcessor;
     }
 
     public function setSpanName(string $name): API\SpanOptions
@@ -47,16 +52,11 @@ final class SpanOptions implements API\SpanOptions
         return $this;
     }
 
-    public function setParentContext(API\SpanContext $span): API\SpanOptions
+    public function setParent(Context $parentContext): API\SpanOptions
     {
-        $this->parent = $span;
-
-        return $this;
-    }
-
-    public function setParentSpan(API\Span $span): API\SpanOptions
-    {
-        $this->parent = $span->getContext();
+        $parentSpan = Span::fromContext($parentContext);
+        $parentSpanContext = $parentSpan->getContext();
+        $this->parent = $parentSpanContext;
 
         return $this;
     }
@@ -68,9 +68,13 @@ final class SpanOptions implements API\SpanOptions
         return $this;
     }
 
-    public function addLinks(API\Links $links): API\SpanOptions
+    public function addLink(API\Link $link): API\SpanOptions
     {
-        $this->links = $links;
+        if (null === $this->links) {
+            $this->links = new Links();
+        }
+
+        $this->links->addLink($link);
 
         return $this;
     }
@@ -89,14 +93,26 @@ final class SpanOptions implements API\SpanOptions
         return $this;
     }
 
+    /**
+     * @return Span
+     */
     public function toSpan(): API\Span
     {
         $span = $this->tracer->getActiveSpan();
         $context = $span->getContext()->isValid()
             ? SpanContext::fork($span->getContext()->getTraceId())
-            : SpanContext::generate();
+            : SpanContext::fork($this->tracer->getTracerProvider()->getIdGenerator()->generateTraceId());
 
-        $span = new Span($this->name, $context, $this->parent, null, $this->tracer->getResource(), $this->kind);
+        $span = new Span(
+            $this->name,
+            $context,
+            $this->parent,
+            $this->tracer->getResource(),
+            $this->kind,
+            $this->attributes,
+            $this->links,
+            $this->spanProcessor
+        );
 
         if ($this->startEpochTimestamp !== null) {
             $span->setStartEpochTimestamp($this->startEpochTimestamp);
@@ -106,17 +122,12 @@ final class SpanOptions implements API\SpanOptions
             $span->setStart($this->start);
         }
 
-        if (isset($this->attributes)) {
-            $span->replaceAttributes($this->attributes);
-        }
-
-        if (isset($this->links)) {
-            $span->setLinks($this->links);
-        }
-
         return $span;
     }
 
+    /**
+     * @return Span
+     */
     public function toActiveSpan(): API\Span
     {
         $span = $this->toSpan();

@@ -4,23 +4,25 @@ declare(strict_types=1);
 
 namespace OpenTelemetry\Sdk\Trace;
 
-use Exception;
-use OpenTelemetry\Context\ContextKey;
-use OpenTelemetry\Context\ContextValueTrait;
+use OpenTelemetry\Context\Context;
+use OpenTelemetry\Context\Scope;
+use OpenTelemetry\Sdk\InstrumentationLibrary;
 use OpenTelemetry\Sdk\Resource\ResourceInfo;
 use OpenTelemetry\Trace as API;
+use Throwable;
 
-class Span implements API\Span
+class Span implements ReadWriteSpan
 {
-    use ContextValueTrait;
+    /** @var NoopSpan|null */
+    private static $invalidSpan;
 
     private $name;
     private $spanContext;
     private $parentSpanContext;
     private $spanKind;
-    private $sampler;
 
     private $startEpochTimestamp;
+    private $endEpochTimestamp;
     private $start;
     private $end;
 
@@ -31,62 +33,113 @@ class Span implements API\Span
      */
     private $resource; // An immutable representation of the entity producing telemetry.
 
+    /**
+     * @var InstrumentationLibrary
+     */
+    private $instrumentationLibrary;
+
     private $attributes;
     private $events;
-    private $links = null;
+    private $links;
 
     private $ended = false;
 
     /** @var ?SpanProcessor */
     private $spanProcessor;
 
-    // todo: missing links: https://github.com/open-telemetry/opentelemetry-specification/blob/master/specification/api-tracing.md#add-links
+    /** @var SpanLimits */
+    private $spanLimits;
 
-    // -> Need to understand the difference between SpanKind and links.  From the documentation:
-    // SpanKind
-    // describes the relationship between the Span, its parents, and its children in a Trace. SpanKind describes two independent properties that benefit tracing systems during analysis.
-    // This was also updated recently -> https://github.com/open-telemetry/opentelemetry-specification/blob/master/specification/api-tracing.md#spankind
+    /** @var int Counts for events dropped due to collection limits */
+    private $droppedEventCount = 0;
 
-    // Links
-    // A Span may be linked to zero or more other Spans (defined by SpanContext) that are causally related. Links can point to SpanContexts inside a single Trace
-    // or across different Traces. Links can be used to represent batched operations where a Span was initiated by multiple initiating Spans,
-    // each representing a single incoming item being processed in the batch.
-    // https://github.com/open-telemetry/opentelemetry-specification/blob/master/specification/overview.md#links-between-spans
+    /** @var int Counts for links dropped due to collection limits */
+    private $droppedLinkCount = 0;
+
+    /**
+     * @todo Implement this in the API layer
+     */
+    public static function fromContext(Context $context): API\Span
+    {
+        if ($span = $context->get(SpanContextKey::instance())) {
+            return $span;
+        }
+
+        return self::getInvalid();
+    }
+
+    /**
+     * @todo Implement this in the API layer
+     */
+    public static function getCurrent(): API\Span
+    {
+        return self::fromContext(Context::getCurrent());
+    }
+
+    public static function getInvalid(): NoopSpan
+    {
+        if (null === self::$invalidSpan) {
+            self::$invalidSpan = new NoopSpan();
+        }
+
+        return self::$invalidSpan;
+    }
+
+    /**
+     * @see https://github.com/open-telemetry/opentelemetry-specification/blob/v1.6.1/specification/trace/api.md#wrapping-a-spancontext-in-a-span
+     * @todo Implement this in the API layer
+     */
+    public static function wrap(API\SpanContext $context): NoopSpan
+    {
+        return new NoopSpan($context);
+    }
 
     public function __construct(
         string $name,
         API\SpanContext $spanContext,
         ?API\SpanContext $parentSpanContext = null,
-        ?Sampler $sampler = null,
         ?ResourceInfo $resource = null,
         int $spanKind = API\SpanKind::KIND_INTERNAL,
-        ?SpanProcessor $spanProcessor = null
+        ?API\Attributes $attributes = null,
+        ?API\Links $links = null,
+        ?SpanProcessor $spanProcessor = null,
+        ?SpanLimits $spanLimits = null
     ) {
         $this->name = $name;
         $this->spanContext = $spanContext;
         $this->parentSpanContext = $parentSpanContext;
         $this->spanKind = $spanKind;
-        $this->sampler = $sampler;
         $this->resource =  $resource ?? ResourceInfo::emptyResource();
         $this->spanProcessor = $spanProcessor;
-        $moment = Clock::get()->moment();
-        $this->startEpochTimestamp = $moment[0];
-        $this->start = $moment[1];
+        [$this->startEpochTimestamp, $this->start] = Clock::get()->moment();
         $this->spanStatus = new SpanStatus();
+        $this->spanLimits = $spanLimits ?? (new SpanLimitsBuilder())->build();
 
         // todo: set these to null until needed
-        $this->attributes = new Attributes();
+        $this->attributes = Attributes::withLimits($attributes ?? new Attributes(), $this->spanLimits->getAttributeLimits());
         $this->events = new Events();
+        $this->setLinks($links);
+    }
+
+    /**
+     * @internal
+     */
+    public function setInstrumentationLibrary(InstrumentationLibrary $instrumentationLibrary)
+    {
+        $this->instrumentationLibrary = $instrumentationLibrary;
+    }
+
+    /**
+     * @internal
+     */
+    public function getInstrumentationLibrary(): InstrumentationLibrary
+    {
+        return $this->instrumentationLibrary;
     }
 
     public function getResource(): ResourceInfo
     {
         return clone $this->resource;
-    }
-
-    public function getContext(): API\SpanContext
-    {
-        return clone $this->spanContext;
     }
 
     public function getParent(): ?API\SpanContext
@@ -95,6 +148,11 @@ class Span implements API\Span
         return $this->parentSpanContext !== null ? clone $this->parentSpanContext : null;
     }
 
+    /**
+     * @param string $code
+     * @param string|null $description
+     * @return Span
+     */
     public function setSpanStatus(string $code, ?string $description = null): API\Span
     {
         if ($this->isRecording()) {
@@ -116,10 +174,14 @@ class Span implements API\Span
         return $this;
     }
 
-    public function end(?int $now = null): API\Span
+    /**
+     * @param int|null $timestamp
+     * @return Span
+     */
+    public function end(?int $timestamp = null): API\Span
     {
         if (!isset($this->end)) {
-            $this->end = $now ?? Clock::get()->now();
+            $this->end = $timestamp ?? Clock::get()->now();
             $this->ended = true;
         }
 
@@ -143,6 +205,11 @@ class Span implements API\Span
     public function getStartEpochTimestamp(): int
     {
         return $this->startEpochTimestamp;
+    }
+
+    public function getEndEpochTimestamp(): ?int
+    {
+        return $this->endEpochTimestamp;
     }
 
     public function getEnd(): ?int
@@ -174,6 +241,10 @@ class Span implements API\Span
         return $this->name;
     }
 
+    /**
+     * @param string $name
+     * @return Span
+     */
     public function updateName(string $name): API\Span
     {
         $this->name = $name;
@@ -181,11 +252,21 @@ class Span implements API\Span
         return $this;
     }
 
+    public function getContext(): API\SpanContext
+    {
+        return $this->spanContext;
+    }
+
     public function getAttribute(string $key): ?Attribute
     {
         return $this->attributes->getAttribute($key);
     }
 
+    /**
+     * @param string $key
+     * @param array|bool|float|int|string $value
+     * @return Span
+     */
     public function setAttribute(string $key, $value): API\Span
     {
         if ($this->isRecording()) {
@@ -210,32 +291,59 @@ class Span implements API\Span
     }
 
     // todo: is accepting an Iterator enough to satisfy AddLazyEvent?  -> Looks like the spec might have been updated here: https://github.com/open-telemetry/opentelemetry-specification/blob/master/specification/api-tracing.md#add-events
+    /**
+     * @param string $name
+     * @param int $timestamp
+     * @param API\Attributes|null $attributes
+     * @return Span
+     */
     public function addEvent(string $name, int $timestamp, ?API\Attributes $attributes = null): API\Span
     {
-        if ($this->isRecording()) {
-            $this->events->addEvent($name, $attributes, $timestamp);
+        if (!$this->isRecording()) {
+            return $this;
         }
+
+        if ($this->events->count() >= $this->spanLimits->getEventCountLimit()) {
+            $this->droppedEventCount++;
+
+            return $this;
+        }
+
+        $eventAttributes = null !== $attributes ? Attributes::withLimits($attributes, new AttributeLimits($this->spanLimits->getAttributePerEventCountLimit())) : null;
+        $this->events->addEvent($name, $eventAttributes, $timestamp);
 
         return $this;
     }
 
-    public function recordException(Exception $exception): API\Span
+    /**
+     * @param Throwable $exception
+     * @param API\Attributes|null $attributes
+     * @return Span
+     */
+    public function recordException(Throwable $exception, ?API\Attributes $attributes = null): API\Span
     {
-        $attributes = new Attributes(
+        $eventAttributes = new Attributes(
             [
                 'exception.type' => get_class($exception),
                 'exception.message' => $exception->getMessage(),
-                'exception.stacktrace' => $exception->getTraceAsString(),
+                'exception.stacktrace' => self::getStackTrace($exception),
             ]
         );
-        $timestamp = time();
+        foreach ($attributes ?? [] as $attribute) {
+            $eventAttributes->setAttribute($attribute->getKey(), $attribute->getValue());
+        }
 
-        return  $this->addEvent('exception', $timestamp, $attributes);
+        return $this->addEvent('exception', Clock::get()->timestamp(), $eventAttributes);
     }
 
     public function getEvents(): API\Events
     {
         return $this->events;
+    }
+
+    public function getDroppedEventsCount(): int
+    {
+        return $this->droppedEventCount;
     }
 
     /* A Span is said to have a remote parent if it is the child of a Span
@@ -251,30 +359,30 @@ class Span implements API\Span
         return $this->spanContext->isRemote();
     }
 
-    public function isSampled(): bool
-    {
-        return $this->spanContext->isSampled();
-    }
-
-    public function setLinks(API\Links $links): Span
-    {
-        $this->links = $links;
-
-        return $this;
-    }
-
     public function getLinks(): API\Links
     {
-        // TODO: Implement getLinks() method.
         return $this->links;
     }
 
-    /**
-     * @inheritDoc
-     */
-    public function addLink(API\SpanContext $context, ?API\Attributes $attributes = null): API\Span
+    private function setLinks(?API\Links $links): void
     {
-        return $this;
+        $this->links = new Links();
+        if (null !== $links) {
+            foreach ($links as $link) {
+                $linkAttributes = Attributes::withLimits($link->getAttributes(), new AttributeLimits($this->spanLimits->getAttributePerLinkCountLimit()));
+                $this->links->addLink(new Link($link->getSpanContext(), $linkAttributes));
+                if (count($this->links) === $this->spanLimits->getLinkCountLimit()) {
+                    $this->droppedLinkCount = count($links) - $this->spanLimits->getLinkCountLimit();
+
+                    break;
+                }
+            }
+        }
+    }
+
+    public function getDroppedLinksCount(): int
+    {
+        return $this->droppedLinkCount;
     }
 
     public function getSpanKind(): int
@@ -297,12 +405,76 @@ class Span implements API\Span
         return $this->spanStatus->isStatusOK();
     }
 
-    /**
-     * @return ContextKey
-     * @phan-override
-     */
-    protected static function getContextKey(): ContextKey
+    /** @inheritDoc */
+    public function storeInContext(Context $context): Context
     {
-        return SpanContextKey::instance();
+        return $context->with(SpanContextKey::instance(), $this);
+    }
+
+    /** @inheritDoc */
+    public function activate(): Scope
+    {
+        return Context::getCurrent()->withContextValue($this)->activate();
+    }
+
+    /**
+     * This function provides a more java-like stacktrace
+     * that supports exception chaining and provides exact
+     * lines of where exceptions are thrown
+     *
+     * Example:
+     * Exception: Thrown from grandparent
+     *  at grandparent_func(test.php:56)
+     *  at parent_func(test.php:51)
+     *  at child_func(test.php:44)
+     *  at (main)(test.php:62)
+     *
+     * Credit: https://www.php.net/manual/en/exception.gettraceasstring.php#114980
+     *
+     */
+    public static function getStackTrace($e, $seen=null)
+    {
+        $starter = $seen ? 'Caused by: ' : '';
+        $result = [];
+        if (!$seen) {
+            $seen = [];
+        }
+        $trace  = $e->getTrace();
+        $prev   = $e->getPrevious();
+        $result[] = sprintf('%s%s: %s', $starter, get_class($e), $e->getMessage());
+        $file = $e->getFile();
+        $line = $e->getLine();
+        while (true) {
+            $current = "$file:$line";
+            if (is_array($seen) && in_array($current, $seen)) {
+                $result[] = sprintf(' ... %d more', count($trace)+1);
+
+                break;
+            }
+            $result[] = sprintf(
+                ' at %s%s%s(%s%s%s)',
+                count($trace) && array_key_exists('class', $trace[0]) ? str_replace('\\', '.', $trace[0]['class']) : '',
+                count($trace) && array_key_exists('class', $trace[0]) && array_key_exists('function', $trace[0]) ? '.' : '',
+                count($trace) && array_key_exists('function', $trace[0]) ? str_replace('\\', '.', $trace[0]['function']) : 'main',
+                $line === null ? $file : basename($file),
+                $line === null ? '' : ':',
+                $line === null ? '' : $line
+            );
+            if (is_array($seen)) {
+                $seen[] = "$file:$line";
+            }
+            if (!count($trace)) {
+                break;
+            }
+            $file = array_key_exists('file', $trace[0]) ? $trace[0]['file'] : 'Unknown Source';
+            $line = array_key_exists('file', $trace[0]) && array_key_exists('line', $trace[0]) && $trace[0]['line'] ? $trace[0]['line'] : null;
+            array_shift($trace);
+        }
+        $result = join("\n", $result);
+        if ($prev) {
+            $result  .= "\n" . self::getStackTrace($prev, $seen);
+        }
+
+        return $result;
     }
 }

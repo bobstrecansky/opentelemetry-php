@@ -3,8 +3,10 @@
 declare(strict_types=1);
 require __DIR__ . '/../vendor/autoload.php';
 
+use GuzzleHttp\Client;
+use GuzzleHttp\Psr7\HttpFactory;
 use OpenTelemetry\Context\Context;
-use OpenTelemetry\Contrib\Otlp\Exporter as OTLPExporter;
+use OpenTelemetry\Contrib\OtlpHttp\Exporter as OTLPExporter;
 use OpenTelemetry\Sdk\Trace\Attributes;
 use OpenTelemetry\Sdk\Trace\Clock;
 use OpenTelemetry\Sdk\Trace\Sampler\AlwaysOnSampler;
@@ -21,7 +23,9 @@ $samplingResult = $sampler->shouldSample(
     API\SpanKind::KIND_INTERNAL
 );
 $Exporter = new OTLPExporter(
-    'OTLP Example Service'
+    new Client(),
+    new HttpFactory(),
+    new HttpFactory()
 );
 
 if (SamplingResult::RECORD_AND_SAMPLE === $samplingResult->getDecision()) {
@@ -54,7 +58,7 @@ if (SamplingResult::RECORD_AND_SAMPLE === $samplingResult->getDecision()) {
             'id' => md5((string) microtime(true)),
         ]));
 
-        $tracer->endActiveSpan();
+        $span->end();
     }
     echo PHP_EOL . 'OTLPExample complete!  ';
 } else {

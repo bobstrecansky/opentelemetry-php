@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OpenTelemetry\Tests\Sdk\Unit\Trace;
 
+use OpenTelemetry\Context\Context;
 use OpenTelemetry\Sdk\Trace\Attributes;
 use OpenTelemetry\Sdk\Trace\Span;
 use OpenTelemetry\Sdk\Trace\SpanOptions;
@@ -15,14 +16,16 @@ class SpanOptionsTest extends TestCase
 {
     use HasTraceProvider;
 
-    public function testShouldCreateSpanFromOptions()
+    public function testShouldCreateSpanFromOptions(): void
     {
         $tracer = $this->getTracer();
         $tracer->startAndActivateSpan('firstSpan');
         $spanOptions = new SpanOptions($tracer, 'web');
 
         $global = $tracer->getActiveSpan();
-        $spanOptions->setParentSpan($global);
+        $globalContext = (new Context());
+        $globalContext = $globalContext->withContextValue($global);
+        $spanOptions->setParent($globalContext);
 
         // Create span from options
         /** @var Span $web */
@@ -39,7 +42,7 @@ class SpanOptionsTest extends TestCase
         $this->assertNull($web->getDuration());
     }
 
-    public function testShouldCreateAndSetActiveSpanFromOptions()
+    public function testShouldCreateAndSetActiveSpanFromOptions(): void
     {
         $tracer = $this->getTracer();
         $tracer->startAndActivateSpan('firstSpan');
@@ -58,7 +61,7 @@ class SpanOptionsTest extends TestCase
         $this->assertEquals(1234, $web->getStartEpochTimestamp());
     }
 
-    public function testShouldCreateCorrectSpanAttributes()
+    public function testShouldCreateCorrectSpanAttributes(): void
     {
         $tracer = $this->getTracer();
         $tracer->startAndActivateSpan('firstSpan');
@@ -81,14 +84,13 @@ class SpanOptionsTest extends TestCase
         $web = $spanOptions->toActiveSpan();
 
         // Check that span attributes are the ones passed in to spanOptions
-        $this->assertSame($attributes, $web->getAttributes());
+        $this->assertEquals($attributes, $web->getAttributes());
     }
 
     /**
-     * @test
      * @dataProvider provideSpanKinds
      */
-    public function testSpanKindIsSetCorrect($kind)
+    public function testSpanKindIsSetCorrect($kind): void
     {
         $options = new SpanOptions($this->getTracer(), 'test');
 
@@ -97,10 +99,7 @@ class SpanOptionsTest extends TestCase
         $this->assertEquals($kind, $options->toSpan()->getSpanKind());
     }
 
-    /**
-     * @test
-     */
-    public function testExceptionIsThrownIfInvalidKindIsPassed()
+    public function testExceptionIsThrownIfInvalidKindIsPassed(): void
     {
         $nonExistentKind = 999;
 

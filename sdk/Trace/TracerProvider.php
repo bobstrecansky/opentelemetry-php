@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace OpenTelemetry\Sdk\Trace;
 
-use OpenTelemetry\Sdk\Resource\ResourceConstants;
+use OpenTelemetry\Sdk\InstrumentationLibrary;
 use OpenTelemetry\Sdk\Resource\ResourceInfo;
 use OpenTelemetry\Sdk\Trace\Sampler\AlwaysOnSampler;
 use OpenTelemetry\Sdk\Trace\Sampler\ParentBased;
@@ -38,12 +38,18 @@ final class TracerProvider implements API\TracerProvider
      */
     private $sampler;
 
-    public function __construct(?ResourceInfo $resource = null, ?Sampler $sampler = null, ?IdGenerator $idGenerator = null)
+    /**
+     * @var SpanLimits $spanLimits
+     */
+    private $spanLimits;
+
+    public function __construct(?ResourceInfo $resource = null, ?Sampler $sampler = null, ?IdGenerator $idGenerator = null, ?SpanLimits $spanLimits = null)
     {
         $this->spanProcessors = new SpanMultiProcessor();
         $this->resource = $resource ?? ResourceInfo::emptyResource();
         $this->sampler = $sampler ?? new ParentBased(new AlwaysOnSampler());
         $this->idGenerator = $idGenerator ?? new RandomIdGenerator();
+        $this->spanLimits = $spanLimits ?? (new SpanLimitsBuilder())->build();
 
         register_shutdown_function([$this, 'shutdown']);
     }
@@ -53,7 +59,12 @@ final class TracerProvider implements API\TracerProvider
         $this->spanProcessors->shutdown();
     }
 
-    public function getTracer(string $name, ?string $version = ''): API\Tracer
+    /**
+     * @param string $name
+     * @param string|null $version
+     * @return Tracer
+     */
+    public function getTracer(string $name, ?string $version = null): API\Tracer
     {
         $key = sprintf('%s@%s', $name, ($version ?? 'unknown'));
 
@@ -61,25 +72,12 @@ final class TracerProvider implements API\TracerProvider
             return $this->tracers[$key];
         }
 
-        /*
-         * A resource can be associated with the TracerProvider when the TracerProvider is created.
-         * That association cannot be changed later. When associated with a TracerProvider, all
-         * Spans produced by any Tracer from the provider MUST be associated with this Resource.
-         */
-        $primary = $this->getResource();
-        $resource = ResourceInfo::create(
-            new Attributes(
-                [
-                    ResourceConstants::SERVICE_NAME => $name,
-                    ResourceConstants::SERVICE_VERSION => $version,
-                    ResourceConstants::SERVICE_INSTANCE_ID => uniqid($name . $version),
-                ]
-            )
-        );
+        $instrumentationLibrary = new InstrumentationLibrary($name, $version);
 
         return $this->tracers[$key] = new Tracer(
             $this,
-            ResourceInfo::merge($primary, $resource)
+            $instrumentationLibrary,
+            ResourceInfo::merge($this->getResource(), ResourceInfo::defaultResource())
         );
     }
 
@@ -108,5 +106,13 @@ final class TracerProvider implements API\TracerProvider
     public function getIdGenerator(): IdGenerator
     {
         return $this->idGenerator;
+    }
+
+    /**
+     * @internal
+     */
+    public function getSpanLimits(): SpanLimits
+    {
+        return $this->spanLimits;
     }
 }

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace OpenTelemetry\Contrib\OtlpGrpc;
 
+use function array_key_exists;
+use function hex2bin;
 use Opentelemetry\Proto;
 use Opentelemetry\Proto\Common\V1\AnyValue;
 use Opentelemetry\Proto\Common\V1\ArrayValue;
@@ -13,10 +15,11 @@ use Opentelemetry\Proto\Trace\V1\InstrumentationLibrarySpans;
 use Opentelemetry\Proto\Trace\V1\ResourceSpans;
 use Opentelemetry\Proto\Trace\V1\Span as CollectorSpan;
 use Opentelemetry\Proto\Trace\V1\Span\Event;
+use Opentelemetry\Proto\Trace\V1\Span\Link;
 use Opentelemetry\Proto\Trace\V1\Span\SpanKind;
 use Opentelemetry\Proto\Trace\V1\Status;
 use Opentelemetry\Proto\Trace\V1\Status\StatusCode;
-use OpenTelemetry\Sdk\Trace\Span;
+use OpenTelemetry\Sdk\Trace\ReadableSpan;
 use OpenTelemetry\Sdk\Trace\SpanStatus;
 
 class SpanConverter
@@ -78,7 +81,7 @@ class SpanConverter
         return SpanKind::SPAN_KIND_UNSPECIFIED;
     }
 
-    public function as_otlp_span(Span $span): CollectorSpan
+    public function as_otlp_span(ReadableSpan $span): CollectorSpan
     {
         $end_timestamp = ($span->getStartEpochTimestamp() + $span->getDuration());
 
@@ -93,8 +96,10 @@ class SpanConverter
             'start_time_unix_nano' => $span->getStartEpochTimestamp(),
             'end_time_unix_nano' => $end_timestamp,
             'kind' => $this->as_otlp_span_kind($span->getSpanKind()),
-            // 'trace_state' => $span->getContext()
-            // 'links' =>
+            'trace_state' => (string) $span->getContext()->getTraceState(),
+            'dropped_attributes_count' => $span->getAttributes()->getDroppedAttributesCount(),
+            'dropped_events_count' => $span->getDroppedEventsCount(),
+            'dropped_links_count' => $span->getDroppedLinksCount(),
         ];
 
         foreach ($span->getEvents() as $event) {
@@ -104,13 +109,33 @@ class SpanConverter
             $attrs = [];
 
             foreach ($event->getAttributes() as $k => $v) {
-                array_push($attrs, $this->as_otlp_key_value($k, $v->getValue()));
+                $attrs[] = $this->as_otlp_key_value($k, $v->getValue());
             }
 
             $row['events'][] = new Event([
                 'time_unix_nano' => $event->getTimestamp(),
                 'name' => $event->getName(),
                 'attributes' => $attrs,
+                'dropped_attributes_count' => $event->getAttributes()->getDroppedAttributesCount(),
+            ]);
+        }
+
+        foreach ($span->getLinks() as $link) {
+            if (!array_key_exists('links', $row)) {
+                $row['links'] = [];
+            }
+            $attrs = [];
+
+            foreach ($link->getAttributes() as $k => $v) {
+                $attrs[] = $this->as_otlp_key_value($k, $v->getValue());
+            }
+
+            $row['links'][] = new Link([
+                'trace_id' => hex2bin($link->getSpanContext()->getTraceId()),
+                'span_id' => hex2bin($link->getSpanContext()->getSpanId()),
+                'trace_state' => (string) $link->getSpanContext()->getTraceState(),
+                'attributes' => $attrs,
+                'dropped_attributes_count' => $link->getAttributes()->getDroppedAttributesCount(),
             ]);
         }
 
@@ -118,7 +143,7 @@ class SpanConverter
             if (!array_key_exists('attributes', $row)) {
                 $row['attributes'] = [];
             }
-            array_push($row['attributes'], $this->as_otlp_key_value($k, $v->getValue()));
+            $row['attributes'][] = $this->as_otlp_key_value($k, $v->getValue());
         }
 
         $status = new Status();
@@ -147,7 +172,7 @@ class SpanConverter
         $attrs = [];
         foreach ($spans as $span) {
             foreach ($span->getResource()->getAttributes() as $k => $v) {
-                array_push($attrs, $this->as_otlp_key_value($k, $v->getValue()));
+                $attrs[] = $this->as_otlp_key_value($k, $v->getValue());
             }
         }
 
@@ -156,32 +181,39 @@ class SpanConverter
 
     public function as_otlp_resource_span(iterable $spans): ResourceSpans
     {
-        // TODO: Should return an empty ResourceSpans when $spans is empty
-        // At the minute it returns an semi populated ResourceSpan
+        $isSpansEmpty = true; //Waiting for the loop to prove otherwise
 
-        $convertedSpans = [];
+        $ils = $convertedSpans = [];
         foreach ($spans as $span) {
-            array_push($convertedSpans, $this->as_otlp_span($span));
+            $isSpansEmpty = false;
+
+            /** @var \OpenTelemetry\Sdk\InstrumentationLibrary $il */
+            $il = $span->getInstrumentationLibrary();
+            $ilKey = sprintf('%s@%s', $il->getName(), $il->getVersion()??'');
+            if (!isset($ils[$ilKey])) {
+                $convertedSpans[$ilKey] = [];
+                $ils[$ilKey] = new InstrumentationLibrary(['name' => $il->getName(), 'version' => $il->getVersion()??'']);
+            }
+            $convertedSpans[$ilKey][] = $this->as_otlp_span($span);
         }
 
-        // TODO: Fetch InstrumentationLibrary from the TracerProvider
-        $il = new InstrumentationLibrary([]);
+        if ($isSpansEmpty == true) {
+            return new Proto\Trace\V1\ResourceSpans();
+        }
 
-        $ilspans = [];
-        foreach ($convertedSpans as $convertedSpan) {
-            $ilspan = new InstrumentationLibrarySpans([
+        $ilSpans = [];
+        foreach ($ils as $ilKey => $il) {
+            $ilSpans[] = new InstrumentationLibrarySpans([
                 'instrumentation_library' => $il,
-                'spans' => [$convertedSpan],
+                'spans' => $convertedSpans[$ilKey],
             ]);
-
-            array_push($ilspans, $ilspan);
         }
 
         return new Proto\Trace\V1\ResourceSpans([
             'resource' => new Proto\Resource\V1\Resource([
                 'attributes' => $this->as_otlp_resource_attributes($spans),
             ]),
-            'instrumentation_library_spans' => $ilspans,
+            'instrumentation_library_spans' => $ilSpans,
         ]);
     }
 }

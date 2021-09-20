@@ -4,20 +4,25 @@ declare(strict_types=1);
 
 namespace OpenTelemetry\Tests\Contrib\Unit;
 
+use function bin2hex;
 use OpenTelemetry\Contrib\OtlpGrpc\SpanConverter;
 use Opentelemetry\Proto\Trace\V1;
 use Opentelemetry\Proto\Trace\V1\InstrumentationLibrarySpans;
 use Opentelemetry\Proto\Trace\V1\ResourceSpans;
+use OpenTelemetry\Sdk\InstrumentationLibrary;
 use OpenTelemetry\Sdk\Resource\ResourceInfo;
-use OpenTelemetry\Sdk\Trace\Attribute;
 use OpenTelemetry\Sdk\Trace\Attributes;
 use OpenTelemetry\Sdk\Trace\Clock;
+use OpenTelemetry\Sdk\Trace\Link;
+use OpenTelemetry\Sdk\Trace\Links;
 use OpenTelemetry\Sdk\Trace\Span;
-
 use OpenTelemetry\Sdk\Trace\SpanContext;
+
+use OpenTelemetry\Sdk\Trace\SpanLimitsBuilder;
 use OpenTelemetry\Sdk\Trace\SpanStatus;
 use OpenTelemetry\Sdk\Trace\TracerProvider;
 
+use OpenTelemetry\Trace\SpanKind;
 use PHPUnit\Framework\TestCase;
 
 class OTLPGrpcSpanConverterTest extends TestCase
@@ -25,17 +30,24 @@ class OTLPGrpcSpanConverterTest extends TestCase
     /**
      * @test
      */
-    public function shouldConvertASpanToAPayloadForOtlp()
+    public function shouldConvertASpanToAPayloadForOtlp(): void
     {
         $tracer = (new TracerProvider())->getTracer('OpenTelemetry.OtlpTest');
 
         $timestamp = Clock::get()->timestamp();
 
+        $otherSpan = $tracer->startSpan('batch.manager');
+
         /** @var Span $span */
-        $span = $tracer->startAndActivateSpan('guard.validate');
-        $span->setAttribute('service', 'guard');
+        $span = $tracer->startAndActivateSpan(
+            'guard.validate',
+            SpanKind::KIND_INTERNAL,
+            new Attributes(['service' => 'guard']),
+            new Links([new Link($otherSpan->getContext(), new Attributes(['foo' => 'bar']))])
+        );
         $span->addEvent('validators.list', $timestamp, new Attributes(['job' => 'stage.updateTime']));
         $span->end();
+        $otherSpan->end();
 
         $converter = new SpanConverter();
         $row = $converter->as_otlp_span($span);
@@ -47,6 +59,16 @@ class OTLPGrpcSpanConverterTest extends TestCase
 
         $this->assertSame($span->getSpanName(), $row->getName());
 
+        $this->assertCount(1, $row->getAttributes());
+        $this->assertCount(1, $row->getLinks());
+
+        /** @var V1\Span\Link $link */
+        $link = $row->getLinks()[0];
+
+        $this->assertSame($otherSpan->getContext()->getTraceId(), bin2hex($link->getTraceId()));
+        $this->assertSame($otherSpan->getContext()->getSpanId(), bin2hex($link->getSpanId()));
+        $this->assertCount(1, $link->getAttributes());
+
         // $this->assertIsInt($row['timestamp']);
         // // timestamp should be in microseconds
         // $this->assertGreaterThan(1e15, $row['timestamp']);
@@ -55,7 +77,7 @@ class OTLPGrpcSpanConverterTest extends TestCase
         // $this->assertGreaterThan(0, $row['duration']);
 
         // $this->assertCount(1, $row['tags']);
-        
+
         // /** @var Attribute $attribute */
         // $attribute = $span->getAttribute('service');
         // $this->assertEquals($attribute->getValue(), $row['tags']['service']);
@@ -152,13 +174,13 @@ class OTLPGrpcSpanConverterTest extends TestCase
                 0, // traceFlags
             ),
             null, // parentSpanContext
-            null, // sampler
             ResourceInfo::create(
                 new Attributes([
                     'instance' => 'test-a',
                 ])
             )
         );
+        $sdk->setInstrumentationLibrary(new InstrumentationLibrary('lib-test', 'v0.1.0'));
 
         // We have to set the time twice here due to the way PHP deals with Monotonic Clock and Realtime Clock.
         $sdk->setStartEpochTimestamp($start_time);
@@ -199,9 +221,8 @@ class OTLPGrpcSpanConverterTest extends TestCase
             'instrumentation_library_spans' => [
                 new InstrumentationLibrarySpans([
                     'instrumentation_library' => new \Opentelemetry\Proto\Common\V1\InstrumentationLibrary([
-                        // TODO: Fetch instrumentation library from TracerProvider
-                        // 'name' => 'lib-a',
-                        // 'version' => 'v0.1.0',
+                        'name' => 'lib-test',
+                        'version' => 'v0.1.0',
                     ]),
                     'spans' => [
                         new V1\Span([
@@ -243,5 +264,64 @@ class OTLPGrpcSpanConverterTest extends TestCase
         $otlpspan = (new SpanConverter())->as_otlp_resource_span([$sdk]);
 
         $this->assertEquals($expected, $otlpspan);
+    }
+
+    public function testOtlpNoSpans()
+    {
+        $spans = [];
+
+        $otlpspan = (new SpanConverter())->as_otlp_resource_span($spans);
+
+        $this->assertEquals(new ResourceSpans(), $otlpspan);
+    }
+
+    public function testOtlpDroppedAttributes()
+    {
+        $spanLimits = (new SpanLimitsBuilder())->setAttributeCountLimit(2)->build();
+        $span = new Span('tags.test', SpanContext::generate(), null, null, SpanKind::KIND_INTERNAL, null, null, null, $spanLimits);
+
+        $span->setAttribute('attr-1', '1');
+        $span->setAttribute('attr-2', '2');
+        $span->setAttribute('attr-3', '3');
+
+        $converter = new SpanConverter();
+        $convertedSpan = $converter->as_otlp_span($span);
+
+        $this->assertCount(2, $convertedSpan->getAttributes());
+        $this->assertEquals(1, $convertedSpan->getDroppedAttributesCount());
+    }
+
+    public function testOtlpDroppedEvents()
+    {
+        $spanLimits = (new SpanLimitsBuilder())->setEventCountLimit(2)->build();
+        $span = new Span('tags.test', SpanContext::generate(), null, null, SpanKind::KIND_INTERNAL, null, null, null, $spanLimits);
+
+        $span->addEvent('event-1', Clock::get()->timestamp());
+        $span->addEvent('event-2', Clock::get()->timestamp());
+        $span->addEvent('event-3', Clock::get()->timestamp());
+
+        $converter = new SpanConverter();
+        $convertedSpan = $converter->as_otlp_span($span);
+
+        $this->assertCount(2, $convertedSpan->getEvents());
+        $this->assertEquals(1, $convertedSpan->getDroppedEventsCount());
+    }
+
+    public function testOtlpDroppedLinks()
+    {
+        $spanLimits = (new SpanLimitsBuilder())->setLinkCountLimit(2)->build();
+        $links = new Links([
+            new Link(SpanContext::generate()),
+            new Link(SpanContext::generate()),
+            new Link(SpanContext::generate()),
+        ]);
+
+        $span = new Span('tags.test', SpanContext::generate(), null, null, SpanKind::KIND_INTERNAL, null, $links, null, $spanLimits);
+
+        $converter = new SpanConverter();
+        $convertedSpan = $converter->as_otlp_span($span);
+
+        $this->assertCount(2, $convertedSpan->getLinks());
+        $this->assertEquals(1, $convertedSpan->getDroppedLinksCount());
     }
 }

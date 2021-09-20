@@ -9,10 +9,10 @@ test:
 phan:
 	$(DC_RUN_PHP) env PHAN_DISABLE_XDEBUG_WARN=1 php ./vendor/bin/phan
 psalm:
-	$(DC_RUN_PHP) php ./vendor/bin/psalm
+	$(DC_RUN_PHP) php ./vendor/bin/psalm --threads=1
 psalm-info:
-	$(DC_RUN_PHP) php ./vendor/bin/psalm --show-info=true
-phpstan: 
+	$(DC_RUN_PHP) php ./vendor/bin/psalm --show-info=true --threads=1
+phpstan:
 	$(DC_RUN_PHP) php ./vendor/bin/phpstan analyse
 trace examples: FORCE
 	docker-compose up -d --remove-orphans
@@ -38,7 +38,7 @@ proto:
 bash:
 	$(DC_RUN_PHP) bash
 style:
-	$(DC_RUN_PHP) php ./vendor/bin/php-cs-fixer fix
+	$(DC_RUN_PHP) php ./vendor/bin/php-cs-fixer fix --config=.php-cs-fixer.php --using-cache=no -vvv
 w3c-test-service:
 	@docker-compose -f docker-compose.w3cTraceContext.yaml run --rm php ./tests/TraceContext/W3CTestService/symfony-setup
 FORCE:

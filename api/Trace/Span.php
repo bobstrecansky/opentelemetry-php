@@ -4,37 +4,14 @@ declare(strict_types=1);
 
 namespace OpenTelemetry\Trace;
 
-use Exception;
+use OpenTelemetry\Context\ImplicitContextKeyed;
+use Throwable;
 
-interface Span extends SpanStatus, SpanKind
+/**
+ * @see https://github.com/open-telemetry/opentelemetry-specification/blob/v1.6.1/specification/trace/api.md#span-operations
+ */
+interface Span extends SpanStatus, SpanKind, ImplicitContextKeyed
 {
-    public function getSpanName(): string;
-    public function getContext(): SpanContext;
-    public function getParent(): ?SpanContext;
-
-    /**
-     * Returns Epoch timestamp value (RealtimeClock) when the Span was created
-     * @return int
-     */
-    public function getStartEpochTimestamp(): int;
-
-    /**
-     * Returns system time clock value (MonotonicClock) when the Span was created
-     * @return int
-     */
-    public function getStart(): int;
-
-    /**
-     * Returns system time clock value (MonotonicClock) when the Span was stopped
-     * @return int|null
-     */
-    public function getEnd(): ?int;
-
-    public function getAttributes(): Attributes;
-    public function getLinks(): Links;
-    public function getEvents(): Events;
-    public function getStatus(): SpanStatus;
-
     /**
      * Attributes SHOULD preserve the order in which they're set. Setting an attribute with the same key as an existing
      * attribute SHOULD overwrite the existing attribute's value.
@@ -54,18 +31,11 @@ interface Span extends SpanStatus, SpanKind
     public function addEvent(string $name, int $timestamp, ?Attributes $attributes = null): Span;
 
     /**
-     * @param SpanContext $context
-     * @param Attributes|null $attributes
-     * @return Span Must return $this to allow setting multiple links at once in a chain.
-     */
-    public function addLink(SpanContext $context, ?Attributes $attributes = null): Span;
-
-    /**
      *
-     * @param Exception $exception
+     * @param Throwable $exception
      * @return Span Must return $this to allow setting multiple attributes at once in a chain.
      */
-    public function recordException(Exception $exception): Span;
+    public function recordException(Throwable $exception, ?Attributes $attributes = null): Span;
 
     /**
      * Calling this method is highly discouraged; the name should be set on creation and left alone.
@@ -89,7 +59,7 @@ interface Span extends SpanStatus, SpanKind
      */
     public function end(int $timestamp = null): Span;
 
-    public function isRecording(): bool;
+    public function getContext(): SpanContext;
 
-    public function isSampled(): bool;
+    public function isRecording(): bool;
 }
