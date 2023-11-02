@@ -6,15 +6,16 @@
     xmlns="https://getpsalm.org/schema/config"
     xsi:schemaLocation="https://getpsalm.org/schema/config vendor/vimeo/psalm/config.xsd">
     <projectFiles>
-        <directory name="."/>
+        <directory name="./src"/>
+        <directory name="./tests"/>
+        <directory name="./examples"/>
         <ignoreFiles>
-            <directory name="var"/>
-            <directory name="vendor"/>
-            <directory name="proto"/>
+            <directory name="./examples/traces/demo/"/>
             <directory name="tests/TraceContext/W3CTestService"/>
         </ignoreFiles>
     </projectFiles>
     <plugins>
         <pluginClass class="Psalm\PhpUnitPlugin\Plugin"/>
+        <pluginClass class="Psalm\MockeryPlugin\Plugin"/>
     </plugins>
 </psalm>

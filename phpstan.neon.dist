@@ -1,17 +1,35 @@
 includes:
     - vendor/phpstan/phpstan-phpunit/extension.neon
+    - vendor/phpstan/phpstan-mockery/extension.neon
 
 parameters:
     tmpDir: var/cache/phpstan
     level: 5
     paths:
-        - .
-    excludes_analyse:
-        - var
-        - vendor
-        - proto
+        - ./src
+        - ./tests
+        # - ./examples TODO: Uncomment this once examples are updated
+    excludePaths:
         - tests/TraceContext/W3CTestService
     ignoreErrors:
-        # PHPStan false positive
-        - message: '#Call to an undefined static method OpenTelemetry\\Sdk\\Metrics\\Providers\\GlobalMeterProvider\:\:getMeter\(\)\.#'
-          path: tests/Sdk/Unit/Metrics/Providers/GlobalMeterProvicerTest.php
+        -
+            message: "#Call to an undefined method .*#"
+            paths:
+                - tests/Unit/SDK/Common/Configuration/Resolver/PhpIniResolverTest.php
+                - tests/Unit/SDK/Common/Configuration/Resolver/CompositeResolverTest.php
+        -
+            message: "#Call to an undefined method .*:allows.*#"
+            paths:
+                - tests
+        -
+            message: "#Call to an undefined method .*:shouldReceive.*#"
+            paths:
+                - tests
+        -
+            message: "#Call to an undefined method .*:shouldHaveReceived.*#"
+            paths:
+                - tests
+        -
+            message: "#Call to an undefined method .*:expects.*#"
+            paths:
+                - tests

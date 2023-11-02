@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use Phan\Issue;
 
 /**
@@ -42,7 +44,7 @@ return [
     //
     // Note that the **only** effect of choosing `'5.6'` is to infer that functions removed in php 7.0 exist.
     // (See `backward_compatibility_checks` for additional options)
-    'target_php_version' => '7.3',
+    'target_php_version' => '7.4',
 
     // If enabled, missing properties will be created when
     // they are first seen. If false, we'll report an
@@ -278,7 +280,12 @@ return [
 
     // Add any issue types (such as `'PhanUndeclaredMethod'`)
     // to this deny-list to inhibit them from being reported.
-    'suppress_issue_types' => [],
+    'suppress_issue_types' => [
+        'PhanAccessClassInternal',
+        'PhanAccessMethodInternal',
+        'PhanAccessPropertyInternal',
+        'PhanTemplateTypeNotUsedInFunctionReturn',
+    ],
 
     // A regular expression to match files to be excluded
     // from parsing and analysis and will not be read at all.
@@ -294,7 +301,9 @@ return [
     //
     // This is useful for excluding hopelessly unanalyzable
     // files that can't be removed for whatever reason.
-    'exclude_file_list' => [],
+    'exclude_file_list' => [
+        'vendor/composer/composer/src/Composer/InstalledVersions.php',
+    ],
 
     // A directory list that defines files that will be excluded
     // from static analysis, but whose class and method
@@ -357,19 +366,17 @@ return [
     // Thus, both first-party and third-party code being used by
     // your application should be included in this list.
     'directory_list' => [
-        'api',
-        'Context',
-        'sdk',
-        'contrib',
-        'proto',
-        'vendor/composer/xdebug-handler/src',
+        'src',
+        'proto/otel/GPBMetadata',
+        'proto/otel/Opentelemetry',
+        'vendor/composer',
+        'vendor/grpc/grpc/src/lib',
         'vendor/guzzlehttp',
         'vendor/psr',
         'vendor/php-http',
         'vendor/phan/phan/src/Phan',
         'vendor/phpunit/phpunit/src',
-        'vendor/promphp/prometheus_client_php/src',
-        'vendor/google/protobuf/src'
+        'vendor/google/protobuf/src',
     ],
 
     // A list of individual files to include in analysis

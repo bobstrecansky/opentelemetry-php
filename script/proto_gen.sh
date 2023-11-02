@@ -1,6 +1,35 @@
-apk update && apk add git
+#!/usr/bin/env bash
+DESTINATION_DIR=$(realpath "$(dirname "${BASH_SOURCE[0]}")")/../proto/otel
+GPBMETA_DIR="GPBMetadata"
+OTEL_DIR="Opentelemetry"
+REPO_DIR=opentelemetry-proto
 
-mkdir /mnt/proto
-git clone https://github.com/open-telemetry/opentelemetry-proto
+cd "${DESTINATION_DIR}" || exit
+[[ -d ./${REPO_DIR} ]] && rm -rf ./${REPO_DIR}
+git clone https://github.com/open-telemetry/${REPO_DIR}
 
-protoc --proto_path=opentelemetry-proto/ --php_out=/mnt/proto --grpc_out=/mnt/proto --plugin=protoc-gen-grpc=usr/local/bin/grpc_php_plugin $(find opentelemetry-proto/opentelemetry -iname "*.proto")
+(
+  cd ${REPO_DIR}
+  git config --add advice.detachedHead false
+  TAG=$(
+      TAG=$(git describe --tags `git rev-list --tags --max-count=1`)
+
+      git checkout "${TAG}"
+
+      echo "${TAG}"
+  )
+
+  echo "Generating protobuf files for version ${TAG} ..."
+  make gen-php
+  [[ -d ${GPBMETA_DIR} ]] && rm -rf ${GPBMETA_DIR}
+  [[ -d ${OTEL_DIR} ]] && rm -rf ${OTEL_DIR}
+  echo "${TAG}" > "${DESTINATION_DIR}/VERSION"
+)
+
+echo "Copying generated source..."
+cp -r ${REPO_DIR}/gen/php/${GPBMETA_DIR} .
+cp -r ${REPO_DIR}/gen/php/${OTEL_DIR} .
+
+echo "Cleaning up..."
+rm -rf ./${REPO_DIR}
+echo "Done!"

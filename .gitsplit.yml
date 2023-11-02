@@ -1,0 +1,31 @@
+# Path to a cache directory Used to speed up the split over time by reusing git's objects
+cache_url: "/cache/gitsplit"
+
+# Path to the repository to split (default = current path)
+project_url: "https://github.com/open-telemetry/opentelemetry-php.git"
+
+# List of splits.
+splits:
+  - prefix: "proto/otel"
+    target: "https://${GH_TOKEN}@github.com/opentelemetry-php/gen-otlp-protobuf.git"
+  - prefix: "src/Context"
+    target: "https://${GH_TOKEN}@github.com/opentelemetry-php/context.git"
+  - prefix: "src/SemConv"
+    target: "https://${GH_TOKEN}@github.com/opentelemetry-php/sem-conv.git"
+  - prefix: "src/API"
+    target: "https://${GH_TOKEN}@github.com/opentelemetry-php/api.git"
+  - prefix: "src/SDK"
+    target: "https://${GH_TOKEN}@github.com/opentelemetry-php/sdk.git"
+  - prefix: "src/Contrib/Otlp"
+    target: "https://${GH_TOKEN}@github.com/opentelemetry-php/exporter-otlp.git"
+  - prefix: "src/Contrib/Grpc"
+    target: "https://${GH_TOKEN}@github.com/opentelemetry-php/transport-grpc.git"
+  - prefix: "src/Contrib/Zipkin"
+    target: "https://${GH_TOKEN}@github.com/opentelemetry-php/exporter-zipkin.git"
+  - prefix: "src/Extension/Propagator/B3"
+    target: "https://${GH_TOKEN}@github.com/opentelemetry-php/extension-propagator-b3.git"
+
+# List of references to split (defined as regexp)
+origins:
+  - ^main$
+  - ^split$

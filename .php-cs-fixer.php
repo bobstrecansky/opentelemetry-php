@@ -1,11 +1,14 @@
 <?php
+
+declare(strict_types=1);
+
 $finder = PhpCsFixer\Finder::create()
-    ->exclude('vendor')
-    ->exclude('var/cache')
-    ->exclude('proto')
-    ->in(__DIR__);
+    ->in('examples/')
+    ->in('tests/')
+    ->in('src/');
 
 $config = new PhpCsFixer\Config();
+
 return $config->setRules([
     'concat_space' => ['spacing' => 'one'],
     'declare_equal_normalize' => ['space' => 'none'],
@@ -13,6 +16,7 @@ return $config->setRules([
     'modernize_types_casting' => true,
     'ordered_imports' => true,
     'php_unit_construct' => true,
+    'php_unit_method_casing' => ['case' => 'snake_case'],
     'single_line_comment_style' => true,
     'yoda_style' => false,
     '@PSR2' => true,
@@ -27,6 +31,8 @@ return $config->setRules([
     'new_with_braces' => true,
     'no_extra_blank_lines' => true,
     'no_leading_import_slash' => true,
+    'no_trailing_whitespace' => true,
+    'no_whitespace_in_blank_line' => true,
     'echo_tag_syntax' => true,
     'no_unused_imports' => true,
     'no_useless_else' => true,
