@@ -35,10 +35,25 @@ jobs:
           token: ${{ github.token }}
 
       - name: Formatting
-        run: mago fmt --check
+        id: format
+        continue-on-error: true
+        run: mago format --check
 
       - name: Linting
+        id: lint
+        continue-on-error: true
         run: mago lint --reporting-format=github
 
       - name: Static Analysis
+        id: analyze
+        continue-on-error: true
         run: mago analyze --reporting-format=github
+
+      - name: Final status
+        if: ${{ always() }}
+        run: |
+          if [[ "${{ steps.format.outcome }}" == "failure" || "${{ steps.lint.outcome }}" == "failure" || "${{ steps.analyze.outcome }}" == "failure" ]]; then
+            echo "One or more Mago checks failed."
+            echo "format=${{ steps.format.outcome }} lint=${{ steps.lint.outcome }} analyze=${{ steps.analyze.outcome }}"
+            exit 1
+          fi
