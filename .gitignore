@@ -36,3 +36,7 @@ docs/build
 
 # cache from phpdoc
 .phpdoc
+
+# mago
+.mago/
+mago.lock

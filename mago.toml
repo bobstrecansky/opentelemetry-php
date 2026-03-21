@@ -1,0 +1,13 @@
+# mago.toml
+paths = ["src"]
+
+[format]
+line_length = 120
+indent_style = "space"
+indent_size = 4
+
+[lint]
+level = "all"
+
+[analysis]
+level = "all"
