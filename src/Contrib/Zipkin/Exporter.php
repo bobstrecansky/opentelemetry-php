@@ -23,13 +23,10 @@ class Exporter implements SpanExporterInterface
     use LogsMessagesTrait;
     use UsesSpanConverterTrait;
 
-    private TransportInterface $transport;
-
     public function __construct(
-        TransportInterface $transport,
-        SpanConverterInterface $spanConverter = null
+        private readonly TransportInterface $transport,
+        ?SpanConverterInterface $spanConverter = null,
     ) {
-        $this->transport = $transport;
         $this->setSpanConverter($spanConverter ?? new SpanConverter());
     }
 
@@ -44,6 +41,7 @@ class Exporter implements SpanExporterInterface
         );
     }
 
+    #[\Override]
     public function export(iterable $batch, ?CancellationInterface $cancellation = null): FutureInterface
     {
         return $this->transport
@@ -56,11 +54,13 @@ class Exporter implements SpanExporterInterface
             });
     }
 
+    #[\Override]
     public function shutdown(?CancellationInterface $cancellation = null): bool
     {
         return $this->transport->shutdown($cancellation);
     }
 
+    #[\Override]
     public function forceFlush(?CancellationInterface $cancellation = null): bool
     {
         return $this->transport->forceFlush($cancellation);

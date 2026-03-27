@@ -16,36 +16,37 @@ use OpenTelemetry\SDK\Metrics\Data\Temporality;
  */
 final class AsynchronousMetricStream implements MetricStreamInterface
 {
-    private AggregationInterface $aggregation;
-
-    private int $startTimestamp;
     private Metric $metric;
 
     /** @var array<int, Metric|null> */
     private array $lastReads = [];
 
-    public function __construct(AggregationInterface $aggregation, int $startTimestamp)
-    {
-        $this->aggregation = $aggregation;
-        $this->startTimestamp = $startTimestamp;
+    public function __construct(
+        private readonly AggregationInterface $aggregation,
+        private readonly int $startTimestamp,
+    ) {
         $this->metric = new Metric([], [], $startTimestamp);
     }
 
-    public function temporality()
+    #[\Override]
+    public function temporality(): Temporality|string
     {
         return Temporality::CUMULATIVE;
     }
 
+    #[\Override]
     public function timestamp(): int
     {
         return $this->metric->timestamp;
     }
 
+    #[\Override]
     public function push(Metric $metric): void
     {
         $this->metric = $metric;
     }
 
+    #[\Override]
     public function register($temporality): int
     {
         if ($temporality === Temporality::CUMULATIVE) {
@@ -61,6 +62,7 @@ final class AsynchronousMetricStream implements MetricStreamInterface
         return $reader;
     }
 
+    #[\Override]
     public function unregister(int $reader): void
     {
         if (!isset($this->lastReads[$reader])) {
@@ -70,6 +72,7 @@ final class AsynchronousMetricStream implements MetricStreamInterface
         $this->lastReads[$reader] = null;
     }
 
+    #[\Override]
     public function collect(int $reader): DataInterface
     {
         $metric = $this->metric;

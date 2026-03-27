@@ -11,7 +11,7 @@ use OpenTelemetry\SDK\Logs\ReadWriteLogRecord;
 
 class MultiLogRecordProcessor implements LogRecordProcessorInterface
 {
-    // @var LogRecordProcessorInterface[]
+    /** @var list<LogRecordProcessorInterface> */
     private array $processors = [];
 
     public function __construct(array $processors)
@@ -22,6 +22,7 @@ class MultiLogRecordProcessor implements LogRecordProcessorInterface
         }
     }
 
+    #[\Override]
     public function onEmit(ReadWriteLogRecord $record, ?ContextInterface $context = null): void
     {
         foreach ($this->processors as $processor) {
@@ -33,6 +34,7 @@ class MultiLogRecordProcessor implements LogRecordProcessorInterface
      * Returns `true` if all processors shut down successfully, else `false`
      * Subsequent calls to `shutdown` are a no-op.
      */
+    #[\Override]
     public function shutdown(?CancellationInterface $cancellation = null): bool
     {
         $result = true;
@@ -48,6 +50,7 @@ class MultiLogRecordProcessor implements LogRecordProcessorInterface
     /**
      * Returns `true` if all processors flush successfully, else `false`.
      */
+    #[\Override]
     public function forceFlush(?CancellationInterface $cancellation = null): bool
     {
         $result = true;

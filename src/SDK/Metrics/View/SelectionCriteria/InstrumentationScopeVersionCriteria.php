@@ -10,13 +10,11 @@ use OpenTelemetry\SDK\Metrics\View\SelectionCriteriaInterface;
 
 final class InstrumentationScopeVersionCriteria implements SelectionCriteriaInterface
 {
-    private ?string $version;
-
-    public function __construct(?string $version)
+    public function __construct(private readonly ?string $version)
     {
-        $this->version = $version;
     }
 
+    #[\Override]
     public function accepts(Instrument $instrument, InstrumentationScopeInterface $instrumentationScope): bool
     {
         return $this->version === $instrumentationScope->getVersion();

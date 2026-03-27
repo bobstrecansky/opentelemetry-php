@@ -1,17 +1,17 @@
 version: '3.7'
 services:
   prometheus:
-    image: prom/prometheus
+    image: prom/prometheus@sha256:4a61322ac1103a0e3aea2a61ef1718422a48fa046441f299d71e660a3bc71ae9
     ports:
       - 9090:9090
     volumes:
       - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
   redis:
-    image: redis
+    image: redis@sha256:315270d166080f537bbdf1b489b603aaaa213cb55a544acfa51feb7481abb1c0
     ports:
         - 6379:6379
   web:
-    image: nginx:alpine
+    image: nginx:alpine@sha256:f46cb72c7df02710e693e863a983ac42f6a9579058a59a35f1ae36c9958e4ce0
     ports:
       - 8080:80
     depends_on:
@@ -23,7 +23,7 @@ services:
       context: .
       dockerfile: docker/examples/Dockerfile
       args:
-        - PHP_VERSION=7.4-fpm
+        - PHP_VERSION=8.0-fpm
         - EXT_ENABLE=redis
     volumes:
       - ./examples/prometheus/index.php:/var/www/public/index.php

@@ -16,11 +16,11 @@ use OpenTelemetry\SDK\Resource\ResourceInfo;
 use OpenTelemetry\SDK\Trace\SpanDataInterface;
 use OpenTelemetry\SDK\Trace\StatusData;
 use OpenTelemetry\Tests\Unit\SDK\Util\SpanData;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
-/**
- * @covers \OpenTelemetry\Contrib\Zipkin\SpanConverter
- */
+#[CoversClass(SpanConverter::class)]
 class ZipkinSpanConverterTest extends TestCase
 {
     public function test_should_convert_a_span_to_a_payload_for_zipkin(): void
@@ -117,9 +117,7 @@ class ZipkinSpanConverterTest extends TestCase
         $this->assertArrayNotHasKey('otel.scope.version', $row);
     }
 
-    /**
-     * @dataProvider spanKindProvider
-     */
+    #[DataProvider('spanKindProvider')]
     public function test_should_convert_otel_span_to_a_zipkin_span(int $internalSpanKind, string $expectedSpanKind): void
     {
         $span = (new SpanData())
@@ -141,9 +139,7 @@ class ZipkinSpanConverterTest extends TestCase
         ];
     }
 
-    /**
-     * @dataProvider unmappedSpanKindProvider
-     */
+    #[DataProvider('unmappedSpanKindProvider')]
     public function test_should_convert_an_unmapped_otel_internal_span_to_a_zipkin_span_of_unspecified_kind($kind): void
     {
         $span = (new SpanData())
@@ -186,7 +182,7 @@ class ZipkinSpanConverterTest extends TestCase
         $row = $converter->convert([$span])[0];
 
         $this->assertSame('unknown', $row['remoteEndpoint']['serviceName']);
-        $this->assertSame(pow(2, 32)-1, $row['remoteEndpoint']['ipv4']);
+        $this->assertSame((int) pow(2, 32)-1, (int) $row['remoteEndpoint']['ipv4']);
         $this->assertSame(80, $row['remoteEndpoint']['port']);
     }
 
@@ -199,9 +195,12 @@ class ZipkinSpanConverterTest extends TestCase
         $converter = new SpanConverter();
         $row = $converter->convert([$span])[0];
 
-        $this->assertSame('00000000000000000000000000000001', bin2hex($row['remoteEndpoint']['ipv6'])); //Couldn't figure out how to do a direct assertion against binary data
+        $this->assertSame('00000000000000000000000000000001', bin2hex((string) $row['remoteEndpoint']['ipv6'])); //Couldn't figure out how to do a direct assertion against binary data
     }
 
+    /**
+     * @psalm-suppress UndefinedInterfaceMethod,PossiblyInvalidArrayAccess
+     */
     public function test_tags_are_coerced_correctly_to_strings(): void
     {
         $listOfStrings = ['string-1', 'string-2'];
@@ -245,9 +244,9 @@ class ZipkinSpanConverterTest extends TestCase
     }
 
     /**
-     * @dataProvider droppedProvider
      * @see https://github.com/open-telemetry/opentelemetry-specification/blob/v1.20.0/specification/common/mapping-to-non-otlp.md#dropped-attributes-count
      */
+    #[DataProvider('droppedProvider')]
     public function test_displays_non_zero_dropped_counts(int $dropped, bool $expected): void
     {
         $attributes = $this->createMock(AttributesInterface::class);
@@ -265,8 +264,11 @@ class ZipkinSpanConverterTest extends TestCase
 
         if ($expected) {
             $this->assertArrayHasKey(SpanConverter::KEY_DROPPED_EVENTS_COUNT, $tags);
+            $this->assertIsString($tags[SpanConverter::KEY_DROPPED_EVENTS_COUNT]);
             $this->assertArrayHasKey(SpanConverter::KEY_DROPPED_LINKS_COUNT, $tags);
+            $this->assertIsString($tags[SpanConverter::KEY_DROPPED_EVENTS_COUNT]);
             $this->assertArrayHasKey(SpanConverter::KEY_DROPPED_ATTRIBUTES_COUNT, $tags);
+            $this->assertIsString($tags[SpanConverter::KEY_DROPPED_EVENTS_COUNT]);
         } else {
             $this->assertArrayNotHasKey(SpanConverter::KEY_DROPPED_EVENTS_COUNT, $tags);
             $this->assertArrayNotHasKey(SpanConverter::KEY_DROPPED_LINKS_COUNT, $tags);
@@ -280,5 +282,28 @@ class ZipkinSpanConverterTest extends TestCase
             'no dropped' => [0, false],
             'some dropped' => [1, true],
         ];
+    }
+
+    public function test_events(): void
+    {
+        $eventAttributes = $this->createMock(AttributesInterface::class);
+        $eventAttributes->method('getDroppedAttributesCount')->willReturn(99);
+        $attributes = [
+            'a_one' => 123,
+            'a_two' => 3.14159,
+            'a_three' => true,
+            'a_four' => false,
+        ];
+        $eventAttributes->method('count')->willReturn(count($attributes));
+        $eventAttributes->method('toArray')->willReturn($attributes);
+        $span = (new SpanData())
+            ->setName('events.test')
+            ->addEvent('event.one', $eventAttributes);
+        $converted = (new SpanConverter())->convert([$span])[0];
+        $annotations = $converted['annotations'][0];
+
+        $this->assertIsInt($annotations['timestamp']);
+        $this->assertIsString($annotations['value']);
+        $this->assertIsString($annotations[SpanConverter::KEY_DROPPED_ATTRIBUTES_COUNT]);
     }
 }

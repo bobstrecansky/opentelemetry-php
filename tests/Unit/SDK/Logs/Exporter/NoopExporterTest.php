@@ -5,15 +5,15 @@ declare(strict_types=1);
 namespace OpenTelemetry\Tests\Unit\SDK\Logs\Exporter;
 
 use OpenTelemetry\SDK\Logs\Exporter\NoopExporter;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 
-/**
- * @covers \OpenTelemetry\SDK\Logs\Exporter\NoopExporter
- */
+#[CoversClass(NoopExporter::class)]
 class NoopExporterTest extends TestCase
 {
     private NoopExporter $exporter;
 
+    #[\Override]
     public function setUp(): void
     {
         $this->exporter = new NoopExporter();

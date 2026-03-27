@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace OpenTelemetry\Tests\Unit\SDK\Metrics\MetricFactory;
 
 use function func_get_args;
+use OpenTelemetry\API\Common\Time\TestClock;
 use OpenTelemetry\API\Metrics\ObserverInterface;
 use OpenTelemetry\SDK\Common\Attribute\Attributes;
 use OpenTelemetry\SDK\Common\Instrumentation\InstrumentationScope;
@@ -17,6 +18,8 @@ use OpenTelemetry\SDK\Metrics\Exemplar\ExemplarFilter\NoneExemplarFilter;
 use OpenTelemetry\SDK\Metrics\Instrument;
 use OpenTelemetry\SDK\Metrics\InstrumentType;
 use OpenTelemetry\SDK\Metrics\MetricFactory\StreamFactory;
+use OpenTelemetry\SDK\Metrics\MetricFactory\StreamMetricSource;
+use OpenTelemetry\SDK\Metrics\MetricFactory\StreamMetricSourceProvider;
 use OpenTelemetry\SDK\Metrics\MetricMetadataInterface;
 use OpenTelemetry\SDK\Metrics\MetricRegistration\RegistryRegistration;
 use OpenTelemetry\SDK\Metrics\MetricRegistry\MetricRegistry;
@@ -26,14 +29,12 @@ use OpenTelemetry\SDK\Metrics\StalenessHandler\NoopStalenessHandler;
 use OpenTelemetry\SDK\Metrics\StalenessHandlerInterface;
 use OpenTelemetry\SDK\Metrics\ViewProjection;
 use OpenTelemetry\SDK\Resource\ResourceInfoFactory;
-use OpenTelemetry\Tests\Unit\SDK\Util\TestClock;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 
-/**
- * @covers \OpenTelemetry\SDK\Metrics\MetricFactory\StreamFactory
- * @covers \OpenTelemetry\SDK\Metrics\MetricFactory\StreamMetricSource
- * @covers \OpenTelemetry\SDK\Metrics\MetricFactory\StreamMetricSourceProvider
- */
+#[CoversClass(StreamFactory::class)]
+#[CoversClass(StreamMetricSource::class)]
+#[CoversClass(StreamMetricSourceProvider::class)]
 final class StreamFactoryTest extends TestCase
 {
     public function test_create_asynchronous_observer(): void
@@ -162,12 +163,15 @@ final class StreamFactoryTest extends TestCase
 
 final class CollectingSourceRegistry implements MetricSourceRegistryInterface
 {
-
     /**
      * @var list<array{MetricSourceProviderInterface, MetricMetadataInterface, StalenessHandlerInterface}>
      */
     public array $sources = [];
 
+    /**
+     * @psalm-suppress InvalidPropertyAssignmentValue
+     */
+    #[\Override]
     public function add(MetricSourceProviderInterface $provider, MetricMetadataInterface $metadata, StalenessHandlerInterface $stalenessHandler): void
     {
         $this->sources[] = func_get_args();

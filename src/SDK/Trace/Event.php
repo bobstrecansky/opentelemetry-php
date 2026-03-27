@@ -9,32 +9,32 @@ use OpenTelemetry\SDK\Common\Attribute\AttributesInterface;
 
 final class Event implements EventInterface
 {
-    private string $name;
-    private int $timestamp;
-    private AttributesInterface $attributes;
-
-    public function __construct(string $name, int $timestamp, AttributesInterface $attributes)
-    {
-        $this->name = $name;
-        $this->timestamp = $timestamp;
-        $this->attributes = $attributes;
+    public function __construct(
+        private readonly string $name,
+        private readonly int $timestamp,
+        private readonly AttributesInterface $attributes,
+    ) {
     }
 
+    #[\Override]
     public function getAttributes(): AttributesInterface
     {
         return $this->attributes;
     }
 
+    #[\Override]
     public function getName(): string
     {
         return $this->name;
     }
 
+    #[\Override]
     public function getEpochNanos(): int
     {
         return $this->timestamp;
     }
 
+    #[\Override]
     public function getTotalAttributeCount(): int
     {
         return count($this->attributes);

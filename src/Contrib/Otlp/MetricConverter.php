@@ -27,7 +27,7 @@ use function serialize;
 
 final class MetricConverter
 {
-    private ProtobufSerializer $serializer;
+    private readonly ProtobufSerializer $serializer;
 
     public function __construct(?ProtobufSerializer $serializer = null)
     {
@@ -132,15 +132,11 @@ final class MetricConverter
 
     private function convertTemporality($temporality): int
     {
-        switch ($temporality) {
-            case SDK\Metrics\Data\Temporality::DELTA:
-                return AggregationTemporality::AGGREGATION_TEMPORALITY_DELTA;
-            case SDK\Metrics\Data\Temporality::CUMULATIVE:
-                return AggregationTemporality::AGGREGATION_TEMPORALITY_CUMULATIVE;
-        }
-
-        // @codeCoverageIgnoreStart
-        return AggregationTemporality::AGGREGATION_TEMPORALITY_UNSPECIFIED;
+        return match ($temporality) {
+            SDK\Metrics\Data\Temporality::DELTA => AggregationTemporality::AGGREGATION_TEMPORALITY_DELTA,
+            SDK\Metrics\Data\Temporality::CUMULATIVE => AggregationTemporality::AGGREGATION_TEMPORALITY_CUMULATIVE,
+            default => AggregationTemporality::AGGREGATION_TEMPORALITY_UNSPECIFIED,
+        };
         // @codeCoverageIgnoreEnd
     }
 
@@ -208,9 +204,9 @@ final class MetricConverter
         $pHistogramDataPoint->setTimeUnixNano($dataPoint->timestamp);
         $pHistogramDataPoint->setCount($dataPoint->count);
         $pHistogramDataPoint->setSum($dataPoint->sum);
-        /** @phpstan-ignore-next-line */
+        $pHistogramDataPoint->setMin($dataPoint->min);
+        $pHistogramDataPoint->setMax($dataPoint->max);
         $pHistogramDataPoint->setBucketCounts($dataPoint->bucketCounts);
-        /** @phpstan-ignore-next-line */
         $pHistogramDataPoint->setExplicitBounds($dataPoint->explicitBounds);
         foreach ($dataPoint->exemplars as $exemplar) {
             /** @psalm-suppress InvalidArgument */
@@ -220,6 +216,9 @@ final class MetricConverter
         return $pHistogramDataPoint;
     }
 
+    /**
+     * @psalm-suppress PossiblyFalseArgument
+     */
     private function convertExemplar(SDK\Metrics\Data\Exemplar $exemplar): Exemplar
     {
         $pExemplar = new Exemplar();

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace OpenTelemetry\Contrib\Otlp;
 
 use OpenTelemetry\API\Trace as API;
+use OpenTelemetry\API\Trace\SpanContextInterface;
 use Opentelemetry\Proto\Collector\Trace\V1\ExportTraceServiceRequest;
 use Opentelemetry\Proto\Common\V1\InstrumentationScope;
 use Opentelemetry\Proto\Common\V1\KeyValue;
@@ -15,6 +16,7 @@ use Opentelemetry\Proto\Trace\V1\Span;
 use Opentelemetry\Proto\Trace\V1\Span\Event;
 use Opentelemetry\Proto\Trace\V1\Span\Link;
 use Opentelemetry\Proto\Trace\V1\Span\SpanKind;
+use Opentelemetry\Proto\Trace\V1\SpanFlags;
 use Opentelemetry\Proto\Trace\V1\Status;
 use Opentelemetry\Proto\Trace\V1\Status\StatusCode;
 use OpenTelemetry\SDK\Common\Attribute\AttributesInterface;
@@ -26,7 +28,7 @@ use function spl_object_id;
 
 final class SpanConverter
 {
-    private ProtobufSerializer $serializer;
+    private readonly ProtobufSerializer $serializer;
 
     public function __construct(?ProtobufSerializer $serializer = null)
     {
@@ -121,15 +123,14 @@ final class SpanConverter
 
     private function convertSpanKind(int $kind): int
     {
-        switch ($kind) {
-            case API\SpanKind::KIND_INTERNAL: return SpanKind::SPAN_KIND_INTERNAL;
-            case API\SpanKind::KIND_CLIENT: return SpanKind::SPAN_KIND_CLIENT;
-            case API\SpanKind::KIND_SERVER: return SpanKind::SPAN_KIND_SERVER;
-            case API\SpanKind::KIND_PRODUCER: return SpanKind::SPAN_KIND_PRODUCER;
-            case API\SpanKind::KIND_CONSUMER: return SpanKind::SPAN_KIND_CONSUMER;
-        }
-
-        return SpanKind::SPAN_KIND_UNSPECIFIED;
+        return match ($kind) {
+            API\SpanKind::KIND_INTERNAL => SpanKind::SPAN_KIND_INTERNAL,
+            API\SpanKind::KIND_CLIENT => SpanKind::SPAN_KIND_CLIENT,
+            API\SpanKind::KIND_SERVER => SpanKind::SPAN_KIND_SERVER,
+            API\SpanKind::KIND_PRODUCER => SpanKind::SPAN_KIND_PRODUCER,
+            API\SpanKind::KIND_CONSUMER => SpanKind::SPAN_KIND_CONSUMER,
+            default => SpanKind::SPAN_KIND_UNSPECIFIED,
+        };
     }
 
     private function convertStatusCode(string $status): int
@@ -148,6 +149,7 @@ final class SpanConverter
         $pSpan = new Span();
         $pSpan->setTraceId($this->serializer->serializeTraceId($span->getContext()->getTraceIdBinary()));
         $pSpan->setSpanId($this->serializer->serializeSpanId($span->getContext()->getSpanIdBinary()));
+        $pSpan->setFlags(self::buildFlagsForSpan($span->getContext(), parentSpanContext: $span->getParentContext()));
         $pSpan->setTraceState((string) $span->getContext()->getTraceState());
         if ($span->getParentContext()->isValid()) {
             $pSpan->setParentSpanId($this->serializer->serializeSpanId($span->getParentContext()->getSpanIdBinary()));
@@ -172,6 +174,7 @@ final class SpanConverter
             $pSpan->getLinks()[] = $pLink = new Link();
             $pLink->setTraceId($this->serializer->serializeTraceId($link->getSpanContext()->getTraceIdBinary()));
             $pLink->setSpanId($this->serializer->serializeSpanId($link->getSpanContext()->getSpanIdBinary()));
+            $pLink->setFlags(self::buildFlagsForLink($link->getSpanContext()));
             $pLink->setTraceState((string) $link->getSpanContext()->getTraceState());
             $this->setAttributes($pLink, $link->getAttributes());
         }
@@ -183,5 +186,48 @@ final class SpanConverter
         $pSpan->setStatus($pStatus);
 
         return $pSpan;
+    }
+
+    private static function addRemoteFlags(SpanContextInterface $spanContext, int $baseFlags): int
+    {
+        $flags = $baseFlags;
+        $flags |= SpanFlags::SPAN_FLAGS_CONTEXT_HAS_IS_REMOTE_MASK;
+        if ($spanContext->isRemote()) {
+            $flags |= SpanFlags::SPAN_FLAGS_CONTEXT_IS_REMOTE_MASK;
+        }
+
+        return $flags;
+    }
+
+    private static function buildFlagsForSpan(SpanContextInterface $spanContext, SpanContextInterface $parentSpanContext): int
+    {
+        $flags = $spanContext->getTraceFlags();
+
+        /**
+         * @see https://github.com/open-telemetry/opentelemetry-proto/blob/v1.5.0/opentelemetry/proto/trace/v1/trace.proto#L122
+         *
+         * Bits 8 and 9 represent the 3 states of whether a span's parent is remote.
+         *                                                         ^^^^^^
+         * That is why we pass parent span's context.
+         */
+        $flags = self::addRemoteFlags($parentSpanContext, $flags);
+
+        return $flags;
+    }
+
+    private static function buildFlagsForLink(SpanContextInterface $linkSpanContext): int
+    {
+        $flags = $linkSpanContext->getTraceFlags();
+
+        /**
+         * @see https://github.com/open-telemetry/opentelemetry-proto/blob/v1.5.0/opentelemetry/proto/trace/v1/trace.proto#L279
+         *
+         * Bits 8 and 9 represent the 3 states of whether the link is remote.
+         *                                                    ^^^^
+         * That is why we pass link span's context.
+         */
+        $flags = self::addRemoteFlags($linkSpanContext, $flags);
+
+        return $flags;
     }
 }

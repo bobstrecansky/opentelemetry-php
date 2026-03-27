@@ -6,11 +6,11 @@ namespace OpenTelemetry\Tests\Unit\SDK\Common\Configuration\Parser;
 
 use InvalidArgumentException;
 use OpenTelemetry\SDK\Common\Configuration\Parser\BooleanParser;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
-/**
- * @covers \OpenTelemetry\SDK\Common\Configuration\Parser\BooleanParser
- */
+#[CoversClass(BooleanParser::class)]
 class BooleanParserTest extends TestCase
 {
     private const TRUTHY_VALUES = [
@@ -42,9 +42,7 @@ class BooleanParserTest extends TestCase
         ['0'],
     ];
 
-    /**
-     * @dataProvider truthyValueProvider
-     */
+    #[DataProvider('truthyValueProvider')]
     public function test_truthy_values_return_true(string $value): void
     {
         $this->assertTrue(
@@ -52,9 +50,7 @@ class BooleanParserTest extends TestCase
         );
     }
 
-    /**
-     * @dataProvider falsyValueProvider
-     */
+    #[DataProvider('falsyValueProvider')]
     public function test_falsy_values_return_false(string $value): void
     {
         $this->assertFalse(
@@ -62,23 +58,19 @@ class BooleanParserTest extends TestCase
         );
     }
 
-    /**
-     * @dataProvider disallowedBooleanProvider
-     */
+    #[DataProvider('disallowedBooleanProvider')]
     public function test_disallowed_boolean_type_values_throw_exception(string $value): void
     {
         $this->expectException(InvalidArgumentException::class);
         BooleanParser::parse($value);
     }
 
-    public function disallowedBooleanProvider(): array
+    public static function disallowedBooleanProvider(): array
     {
         return self::DISALLOWED_BOOLEAN_VALUES;
     }
 
-    /**
-     * @dataProvider nonBooleanValueProvider
-     */
+    #[DataProvider('nonBooleanValueProvider')]
     public function test_non_boolean_values_throw_exception(string $value): void
     {
         $this->expectException(InvalidArgumentException::class);
@@ -86,17 +78,17 @@ class BooleanParserTest extends TestCase
         BooleanParser::parse($value);
     }
 
-    public function truthyValueProvider(): array
+    public static function truthyValueProvider(): array
     {
         return self::TRUTHY_VALUES;
     }
 
-    public function falsyValueProvider(): array
+    public static function falsyValueProvider(): array
     {
         return self::FALSY_VALUES;
     }
 
-    public function nonBooleanValueProvider(): array
+    public static function nonBooleanValueProvider(): array
     {
         return self::NON_BOOLEAN_VALUES;
     }

@@ -31,11 +31,17 @@ try {
 
 It is recommended to use a `try-finally` statement after `::activate()` to ensure that the created scope is properly `::detach()`ed.
 
+### Debug scopes
+
+By default, scopes created by `::activate()` warn on invalid and missing calls to `::detach()` in non-production
+environments. This feature can be disabled by setting the environment variable `OTEL_PHP_DEBUG_SCOPES_DISABLED` to a
+truthy value. Disabling is only recommended for applications using `exit` / `die` to prevent unavoidable notices.
+
 ## Async applications
 
-### Fiber support
+### Fiber support - automatic context propagation to newly created fibers
 
-Requires `PHP >= 8.1`, an NTS build, `ext-ffi`, and setting the environment variable `OTEL_PHP_FIBERS_ENABLED` to a truthy value. Additionally `vendor/autoload.php` has to be preloaded for non-CLI SAPIs if [`ffi.enable`](https://www.php.net/manual/en/ffi.configuration.php#ini.ffi.enable) is set to `preload`.
+Requires an NTS build, `ext-ffi`, and setting the environment variable `OTEL_PHP_FIBERS_ENABLED` to a truthy value. Additionally `vendor/autoload.php` has to be preloaded for non-CLI SAPIs if [`ffi.enable`](https://www.php.net/manual/en/ffi.configuration.php#ini.ffi.enable) is set to `preload`.
 
 ### Event loops
 

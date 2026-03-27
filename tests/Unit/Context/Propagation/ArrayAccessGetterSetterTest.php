@@ -7,12 +7,11 @@ namespace OpenTelemetry\Tests\Unit\Context\Propagation;
 use ArrayObject;
 use InvalidArgumentException;
 use OpenTelemetry\Context\Propagation\ArrayAccessGetterSetter;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use stdClass;
 
-/**
- * @covers \OpenTelemetry\Context\Propagation\ArrayAccessGetterSetter
- */
+#[CoversClass(ArrayAccessGetterSetter::class)]
 class ArrayAccessGetterSetterTest extends TestCase
 {
     public function test_get_from_map_array(): void
@@ -94,6 +93,9 @@ class ArrayAccessGetterSetterTest extends TestCase
         $this->assertSame('bravo', $value);
     }
 
+    /**
+     * @psalm-suppress InvalidArgument,UndefinedInterfaceMethod,PossiblyInvalidArrayAccess
+     */
     public function test_set_map_array_access_case(): void
     {
         $carrier = new ArrayObject(['A' => 'alpha']);
@@ -135,5 +137,43 @@ class ArrayAccessGetterSetterTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Unable to set value with an empty key');
         $map->set($carrier, '', 'alpha');
+    }
+
+    public function test_get_all_from_carrier(): void
+    {
+        $carrier = ['a' => ['alpha', 'beta'], 'b' => 'bravo'];
+        $map = new ArrayAccessGetterSetter();
+
+        $this->assertSame(['alpha', 'beta'], $map->getAll($carrier, 'a'));
+        $this->assertSame(['bravo'], $map->getAll($carrier, 'b'));
+        $this->assertSame(['a', 'b'], $map->keys($carrier));
+    }
+
+    public function test_get_all_from_not_existing_key(): void
+    {
+        $carrier = ['a' => 'alpha'];
+        $map = new ArrayAccessGetterSetter();
+
+        $this->assertSame([], $map->getAll($carrier, 'b'));
+        $this->assertSame(['a'], $map->keys($carrier));
+    }
+
+    public function test_get_all_numeric_key_from_carrier(): void
+    {
+        $carrier = [1 => ['alpha', 'beta']];
+        $map = new ArrayAccessGetterSetter();
+
+        $this->assertSame(['alpha', 'beta'], $map->getAll($carrier, '1'));
+        $this->assertSame(['1'], $map->keys($carrier));
+    }
+
+    public function test_get_all_from_unsupported_carrier(): void
+    {
+        $carrier = new stdClass();
+        $map = new ArrayAccessGetterSetter();
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Unsupported carrier type: ' . \get_class($carrier) . '. Unable to get value associated with key:a');
+        $map->getAll($carrier, 'a');
     }
 }

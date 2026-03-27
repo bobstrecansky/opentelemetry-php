@@ -5,10 +5,9 @@ declare(strict_types=1);
 namespace OpenTelemetry\SDK\Metrics;
 
 use ArrayAccess;
+use function assert;
 use OpenTelemetry\API\Metrics\ObservableCallbackInterface;
 use OpenTelemetry\API\Metrics\ObserverInterface;
-use function OpenTelemetry\SDK\Common\Util\closure;
-use function OpenTelemetry\SDK\Common\Util\weaken;
 use OpenTelemetry\SDK\Metrics\MetricRegistry\MetricWriterInterface;
 
 /**
@@ -16,21 +15,13 @@ use OpenTelemetry\SDK\Metrics\MetricRegistry\MetricWriterInterface;
  */
 trait ObservableInstrumentTrait
 {
-    private MetricWriterInterface $writer;
-    private Instrument $instrument;
-    private ReferenceCounterInterface $referenceCounter;
-    private ArrayAccess $destructors;
-
     public function __construct(
-        MetricWriterInterface $writer,
-        Instrument $instrument,
-        ReferenceCounterInterface $referenceCounter,
-        ArrayAccess $destructors
+        private readonly MetricWriterInterface $writer,
+        private readonly Instrument $instrument,
+        private readonly ReferenceCounterInterface $referenceCounter,
+        private readonly ArrayAccess $destructors,
     ) {
-        $this->writer = $writer;
-        $this->instrument = $instrument;
-        $this->referenceCounter = $referenceCounter;
-        $this->destructors = $destructors;
+        assert($this instanceof InstrumentHandle);
 
         $this->referenceCounter->acquire();
     }
@@ -40,22 +31,27 @@ trait ObservableInstrumentTrait
         $this->referenceCounter->release();
     }
 
+    public function getHandle(): Instrument
+    {
+        return $this->instrument;
+    }
+
     /**
      * @param callable(ObserverInterface): void $callback
      */
     public function observe(callable $callback): ObservableCallbackInterface
     {
-        $callback = weaken(closure($callback), $target);
+        return AsynchronousInstruments::observe(
+            $this->writer,
+            $this->destructors,
+            $callback,
+            [$this->instrument],
+            $this->referenceCounter,
+        );
+    }
 
-        $callbackId = $this->writer->registerCallback($callback, $this->instrument);
-        $this->referenceCounter->acquire();
-
-        $destructor = null;
-        if ($target) {
-            $destructor = $this->destructors[$target] ??= new ObservableCallbackDestructor($this->writer, $this->referenceCounter);
-            $destructor->callbackIds[$callbackId] = $callbackId;
-        }
-
-        return new ObservableCallback($this->writer, $this->referenceCounter, $callbackId, $destructor, $target);
+    public function isEnabled(): bool
+    {
+        return $this->writer->enabled($this->instrument);
     }
 }

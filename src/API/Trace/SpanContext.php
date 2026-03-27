@@ -14,84 +14,83 @@ final class SpanContext implements SpanContextInterface
      * @see https://www.w3.org/TR/trace-context/#trace-flags
      * @see https://www.w3.org/TR/trace-context/#sampled-flag
      */
-    private bool $isSampled;
-
-    private string $traceId;
-    private string $spanId;
-    private ?TraceStateInterface $traceState;
+    private readonly bool $isSampled;
     private bool $isValid = true;
-    private bool $isRemote;
-    private int $traceFlags;
 
     private function __construct(
-        string $traceId,
-        string $spanId,
-        int $traceFlags,
-        bool $isRemote,
-        TraceStateInterface $traceState = null
+        private string $traceId,
+        private string $spanId,
+        private readonly int $traceFlags,
+        private readonly bool $isRemote,
+        private readonly ?TraceStateInterface $traceState = null,
     ) {
         // TraceId must be exactly 16 bytes (32 chars) and at least one non-zero byte
         // SpanId must be exactly 8 bytes (16 chars) and at least one non-zero byte
         if (!SpanContextValidator::isValidTraceId($traceId) || !SpanContextValidator::isValidSpanId($spanId)) {
-            $traceId = SpanContextValidator::INVALID_TRACE;
-            $spanId = SpanContextValidator::INVALID_SPAN;
+            $this->traceId = SpanContextValidator::INVALID_TRACE;
+            $this->spanId = SpanContextValidator::INVALID_SPAN;
             $this->isValid=false;
         }
 
-        $this->traceId = $traceId;
-        $this->spanId = $spanId;
-        $this->traceState = $traceState;
-        $this->isRemote = $isRemote;
         $this->isSampled = ($traceFlags & TraceFlags::SAMPLED) === TraceFlags::SAMPLED;
-        $this->traceFlags = $traceFlags;
     }
 
+    #[\Override]
     public function getTraceId(): string
     {
         return $this->traceId;
     }
 
+    #[\Override]
     public function getTraceIdBinary(): string
     {
         return hex2bin($this->traceId);
     }
 
+    #[\Override]
     public function getSpanId(): string
     {
         return $this->spanId;
     }
 
+    #[\Override]
     public function getSpanIdBinary(): string
     {
         return hex2bin($this->spanId);
     }
 
+    #[\Override]
     public function getTraceState(): ?TraceStateInterface
     {
         return $this->traceState;
     }
 
+    #[\Override]
     public function isSampled(): bool
     {
         return $this->isSampled;
     }
 
+    #[\Override]
     public function isValid(): bool
     {
         return $this->isValid;
     }
 
+    #[\Override]
     public function isRemote(): bool
     {
         return $this->isRemote;
     }
 
+    #[\Override]
     public function getTraceFlags(): int
     {
         return $this->traceFlags;
     }
 
     /** @inheritDoc */
+    #[\Override]
     public static function createFromRemoteParent(string $traceId, string $spanId, int $traceFlags = TraceFlags::DEFAULT, ?TraceStateInterface $traceState = null): SpanContextInterface
     {
         return new self(
@@ -104,6 +103,7 @@ final class SpanContext implements SpanContextInterface
     }
 
     /** @inheritDoc */
+    #[\Override]
     public static function create(string $traceId, string $spanId, int $traceFlags = TraceFlags::DEFAULT, ?TraceStateInterface $traceState = null): SpanContextInterface
     {
         return new self(
@@ -116,6 +116,7 @@ final class SpanContext implements SpanContextInterface
     }
 
     /** @inheritDoc */
+    #[\Override]
     public static function getInvalid(): SpanContextInterface
     {
         if (null === self::$invalidContext) {

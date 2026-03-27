@@ -4,23 +4,22 @@ declare(strict_types=1);
 
 namespace OpenTelemetry\Tests\Unit\SDK;
 
+use OpenTelemetry\Context\Propagation\ResponsePropagatorInterface;
 use OpenTelemetry\Context\Propagation\TextMapPropagatorInterface;
 use OpenTelemetry\SDK\Common\Export\TransportFactoryInterface;
 use OpenTelemetry\SDK\Logs\LogRecordExporterFactoryInterface;
 use OpenTelemetry\SDK\Metrics\MetricExporterFactoryInterface;
 use OpenTelemetry\SDK\Registry;
 use OpenTelemetry\SDK\Trace\SpanExporter\SpanExporterFactoryInterface;
-use PHPUnit\Framework\Exception as PHPUnitFrameworkException;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use TypeError;
 
-/**
- * @covers \OpenTelemetry\SDK\Registry
- */
+#[CoversClass(Registry::class)]
 class FactoryRegistryTest extends TestCase
 {
-    /**
-     * @dataProvider transportProtocolsProvider
-     */
+    #[DataProvider('transportProtocolsProvider')]
     public function test_default_transport_factories(string $name): void
     {
         $factory = Registry::transportFactory($name);
@@ -39,9 +38,7 @@ class FactoryRegistryTest extends TestCase
         ];
     }
 
-    /**
-     * @dataProvider spanExporterProvider
-     */
+    #[DataProvider('spanExporterProvider')]
     public function test_default_span_exporter_factories(string $name): void
     {
         $factory = Registry::spanExporterFactory($name);
@@ -58,9 +55,7 @@ class FactoryRegistryTest extends TestCase
         ];
     }
 
-    /**
-     * @dataProvider metricExporterProvider
-     */
+    #[DataProvider('metricExporterProvider')]
     public function test_default_metric_exporter_factories(string $name): void
     {
         $factory = Registry::metricExporterFactory($name);
@@ -76,9 +71,7 @@ class FactoryRegistryTest extends TestCase
         ];
     }
 
-    /**
-     * @dataProvider logRecordExporterProvider
-     */
+    #[DataProvider('logRecordExporterProvider')]
     public function test_default_log_record_exporter_factories(string $name): void
     {
         $factory = Registry::logRecordExporterFactory($name);
@@ -93,9 +86,7 @@ class FactoryRegistryTest extends TestCase
         ];
     }
 
-    /**
-     * @dataProvider textMapPropagator
-     */
+    #[DataProvider('textMapPropagator')]
     public function test_default_text_map_propagator(string $name): void
     {
         $propagator = Registry::textMapPropagator($name);
@@ -106,44 +97,53 @@ class FactoryRegistryTest extends TestCase
     {
         return [
             ['tracecontext'],
-            ['b3multi'],
+            ['baggage'],
             ['b3'],
+            ['b3multi'],
+            ['cloudtrace'],
+            ['cloudtrace-oneway'],
         ];
     }
 
-    /**
-     * @dataProvider invalidFactoryProvider
-     */
+    #[DataProvider('responsePropagator')]
+    public function test_default_response_propagator(string $name): void
+    {
+        $responsePropagator = Registry::responsePropagator($name);
+        $this->assertInstanceOf(ResponsePropagatorInterface::class, $responsePropagator);
+    }
+
+    public static function responsePropagator(): array
+    {
+        return [
+            ['none'],
+        ];
+    }
+
+    #[DataProvider('invalidFactoryProvider')]
     public function test_register_invalid_transport_factory($factory): void
     {
-        $this->expectException(PHPUnitFrameworkException::class);
+        $this->expectException(TypeError::class);
         Registry::registerTransportFactory('http', $factory, true);
     }
 
-    /**
-     * @dataProvider invalidFactoryProvider
-     */
+    #[DataProvider('invalidFactoryProvider')]
     public function test_register_invalid_span_exporter_factory($factory): void
     {
-        $this->expectException(PHPUnitFrameworkException::class);
+        $this->expectException(TypeError::class);
         Registry::registerSpanExporterFactory('foo', $factory, true);
     }
 
-    /**
-     * @dataProvider invalidFactoryProvider
-     */
+    #[DataProvider('invalidFactoryProvider')]
     public function test_register_invalid_metric_exporter_factory($factory): void
     {
-        $this->expectException(PHPUnitFrameworkException::class);
+        $this->expectException(TypeError::class);
         Registry::registerMetricExporterFactory('foo', $factory, true);
     }
 
-    /**
-     * @dataProvider invalidFactoryProvider
-     */
+    #[DataProvider('invalidFactoryProvider')]
     public function test_register_invalid_log_record_exporter_factory($factory): void
     {
-        $this->expectException(PHPUnitFrameworkException::class);
+        $this->expectException(TypeError::class);
         Registry::registerLogRecordExporterFactory('foo', $factory, true);
     }
 

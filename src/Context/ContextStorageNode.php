@@ -11,77 +11,76 @@ use function assert;
  */
 final class ContextStorageNode implements ScopeInterface, ContextStorageScopeInterface
 {
-    public ContextInterface $context;
-    public ContextStorageHead $head;
-    private ?ContextStorageNode $previous;
     private array $localStorage = [];
 
     public function __construct(
-        ContextInterface $context,
-        ContextStorageHead $head,
-        ?ContextStorageNode $previous = null
+        public ContextInterface $context,
+        public ContextStorageHead $head,
+        private ?ContextStorageNode $previous = null,
     ) {
-        $this->context = $context;
-        $this->head = $head;
-        $this->previous = $previous;
     }
 
-    public function offsetExists($offset): bool
+    #[\Override]
+    public function offsetExists(mixed $offset): bool
     {
         return isset($this->localStorage[$offset]);
     }
 
-    /**
-     * @phan-suppress PhanUndeclaredClassAttribute
-     */
-    #[\ReturnTypeWillChange]
-    public function offsetGet($offset)
+    #[\Override]
+    public function offsetGet(mixed $offset): mixed
     {
         return $this->localStorage[$offset];
     }
 
-    public function offsetSet($offset, $value): void
+    #[\Override]
+    public function offsetSet(mixed $offset, mixed $value): void
     {
         $this->localStorage[$offset] = $value;
     }
 
-    public function offsetUnset($offset): void
+    #[\Override]
+    public function offsetUnset(mixed $offset): void
     {
         unset($this->localStorage[$offset]);
     }
 
+    #[\Override]
     public function context(): ContextInterface
     {
         return $this->context;
     }
 
+    #[\Override]
     public function detach(): int
     {
         $flags = 0;
-        if ($this->head !== $this->head->storage->current) {
+        if ($this->head !== $this->head->storage->head()) {
             $flags |= ScopeInterface::INACTIVE;
         }
 
+        static $detached;
+        $detached ??= (new \ReflectionClass(self::class))->newInstanceWithoutConstructor();
+
         if ($this === $this->head->node) {
-            assert($this->previous !== $this);
+            assert($this->previous !== $detached);
             $this->head->node = $this->previous;
-            $this->previous = $this;
+            $this->previous = $detached;
 
             return $flags;
         }
 
-        if ($this->previous === $this) {
+        if ($this->previous === $detached) {
             return $flags | ScopeInterface::DETACHED;
         }
 
         assert($this->head->node !== null);
         for ($n = $this->head->node, $depth = 1;
-             $n->previous !== $this;
-             $n = $n->previous, $depth++) {
+            $n->previous !== $this;
+            $n = $n->previous, $depth++) {
             assert($n->previous !== null);
         }
         $n->previous = $this->previous;
-        $this->previous = $this;
+        $this->previous = $detached;
 
         return $flags | ScopeInterface::MISMATCH | $depth;
     }

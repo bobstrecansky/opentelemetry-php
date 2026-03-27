@@ -20,25 +20,24 @@ use OpenTelemetry\SDK\Resource\ResourceInfo;
  */
 class ReadableLogRecord extends LogRecord
 {
-    private InstrumentationScopeInterface $scope;
-    private LoggerSharedState $loggerSharedState;
     protected AttributesInterface $convertedAttributes;
     protected SpanContextInterface $spanContext;
 
-    public function __construct(InstrumentationScopeInterface $scope, LoggerSharedState $loggerSharedState, LogRecord $logRecord)
-    {
-        $this->scope = $scope;
-        $this->loggerSharedState = $loggerSharedState;
-
+    public function __construct(
+        private readonly InstrumentationScopeInterface $scope,
+        private readonly LoggerSharedState $loggerSharedState,
+        LogRecord $logRecord,
+    ) {
         parent::__construct($logRecord->body);
         $this->timestamp = $logRecord->timestamp;
         $this->observedTimestamp = $logRecord->observedTimestamp
-            ?? (int) (microtime(true) * LogRecord::NANOS_PER_SECOND);
+            ?? (int) (microtime(true) * (float) LogRecord::NANOS_PER_SECOND);
         $this->context = $logRecord->context;
         $context = $this->context ?? Context::getCurrent();
         $this->spanContext = Span::fromContext($context)->getContext();
         $this->severityNumber = $logRecord->severityNumber;
         $this->severityText = $logRecord->severityText;
+        $this->eventName = $logRecord->eventName;
 
         //convert attributes now so that excess data is not sent to processors
         $this->convertedAttributes = $this->loggerSharedState
@@ -94,6 +93,11 @@ class ReadableLogRecord extends LogRecord
     public function getBody()
     {
         return $this->body;
+    }
+
+    public function getEventName(): ?string
+    {
+        return $this->eventName;
     }
 
     public function getAttributes(): AttributesInterface

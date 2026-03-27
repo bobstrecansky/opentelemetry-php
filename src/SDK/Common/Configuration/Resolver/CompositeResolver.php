@@ -4,22 +4,24 @@ declare(strict_types=1);
 
 namespace OpenTelemetry\SDK\Common\Configuration\Resolver;
 
+use Nevay\SPI\ServiceLoader;
 use OpenTelemetry\SDK\Common\Configuration\Configuration;
 
 /**
- * @interal
+ * @internal
  */
 class CompositeResolver
 {
-    // @var array<ResolverInterface>
+    /** @var list<ResolverInterface> */
     private array $resolvers = [];
 
     public static function instance(): self
     {
         static $instance;
         $instance ??= new self([
-            new PhpIniResolver(),
+            ...ServiceLoader::load(ResolverInterface::class),
             new EnvironmentResolver(),
+            new PhpIniResolver(),
         ]);
 
         return $instance;

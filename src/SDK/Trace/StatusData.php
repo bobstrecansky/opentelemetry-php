@@ -11,16 +11,12 @@ final class StatusData implements StatusDataInterface
     private static ?self $ok = null;
     private static ?self $unset = null;
     private static ?self $error = null;
-    private string $code;
-    private string $description;
 
     /** @psalm-param API\StatusCode::STATUS_* $code */
     public function __construct(
-        string $code,
-        string $description
+        private readonly string $code,
+        private readonly string $description,
     ) {
-        $this->code = $code;
-        $this->description = $description;
     }
 
     /** @psalm-param API\StatusCode::STATUS_* $code */
@@ -45,6 +41,7 @@ final class StatusData implements StatusDataInterface
         return new self($code, $description); /** @phan-suppress-current-line PhanTypeMismatchArgumentNullable */
     }
 
+    #[\Override]
     public static function ok(): self
     {
         if (null === self::$ok) {
@@ -54,6 +51,7 @@ final class StatusData implements StatusDataInterface
         return self::$ok;
     }
 
+    #[\Override]
     public static function error(): self
     {
         if (null === self::$error) {
@@ -63,6 +61,7 @@ final class StatusData implements StatusDataInterface
         return self::$error;
     }
 
+    #[\Override]
     public static function unset(): self
     {
         if (null === self::$unset) {
@@ -72,11 +71,13 @@ final class StatusData implements StatusDataInterface
         return self::$unset;
     }
 
+    #[\Override]
     public function getCode(): string
     {
         return $this->code;
     }
 
+    #[\Override]
     public function getDescription(): string
     {
         return $this->description;

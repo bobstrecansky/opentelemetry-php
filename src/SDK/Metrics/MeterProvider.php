@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace OpenTelemetry\SDK\Metrics;
 
+use ArrayAccess;
+use OpenTelemetry\API\Common\Time\ClockInterface;
 use OpenTelemetry\API\Metrics\MeterInterface;
 use OpenTelemetry\API\Metrics\Noop\NoopMeter;
 use OpenTelemetry\Context\ContextStorageInterface;
 use OpenTelemetry\SDK\Common\Attribute\AttributesFactoryInterface;
 use OpenTelemetry\SDK\Common\Instrumentation\InstrumentationScopeFactoryInterface;
-use OpenTelemetry\SDK\Common\Time\ClockInterface;
+use OpenTelemetry\SDK\Common\InstrumentationScope\Configurator;
 use OpenTelemetry\SDK\Metrics\Exemplar\ExemplarFilterInterface;
 use OpenTelemetry\SDK\Metrics\MetricFactory\StreamFactory;
 use OpenTelemetry\SDK\Metrics\MetricRegistry\MetricRegistry;
@@ -17,64 +19,55 @@ use OpenTelemetry\SDK\Metrics\MetricRegistry\MetricRegistryInterface;
 use OpenTelemetry\SDK\Metrics\MetricRegistry\MetricWriterInterface;
 use OpenTelemetry\SDK\Resource\ResourceInfo;
 use OpenTelemetry\SDK\Sdk;
+use WeakMap;
 
 final class MeterProvider implements MeterProviderInterface
 {
-    private MetricFactoryInterface $metricFactory;
-    private ResourceInfo $resource;
-    private ClockInterface $clock;
-    private InstrumentationScopeFactoryInterface $instrumentationScopeFactory;
-    private iterable $metricReaders;
-    private ViewRegistryInterface $viewRegistry;
-    private ?ExemplarFilterInterface $exemplarFilter;
-    private StalenessHandlerFactoryInterface $stalenessHandlerFactory;
-    private MeterInstruments $instruments;
-    private MetricRegistryInterface $registry;
-    private MetricWriterInterface $writer;
+    private readonly MeterInstruments $instruments;
+    private readonly MetricRegistryInterface $registry;
+    private readonly MetricWriterInterface $writer;
+    private readonly ArrayAccess $destructors;
 
     private bool $closed = false;
+    private readonly WeakMap $meters;
 
     /**
      * @param iterable<MetricReaderInterface&MetricSourceRegistryInterface&DefaultAggregationProviderInterface> $metricReaders
      */
     public function __construct(
         ?ContextStorageInterface $contextStorage,
-        ResourceInfo $resource,
-        ClockInterface $clock,
+        private readonly ResourceInfo $resource,
+        private readonly ClockInterface $clock,
         AttributesFactoryInterface $attributesFactory,
-        InstrumentationScopeFactoryInterface $instrumentationScopeFactory,
-        iterable $metricReaders,
-        ViewRegistryInterface $viewRegistry,
-        ?ExemplarFilterInterface $exemplarFilter,
-        StalenessHandlerFactoryInterface $stalenessHandlerFactory,
-        MetricFactoryInterface $metricFactory = null
+        private readonly InstrumentationScopeFactoryInterface $instrumentationScopeFactory,
+        private readonly iterable $metricReaders,
+        private readonly ViewRegistryInterface $viewRegistry,
+        private readonly ?ExemplarFilterInterface $exemplarFilter,
+        private readonly StalenessHandlerFactoryInterface $stalenessHandlerFactory,
+        private readonly MetricFactoryInterface $metricFactory = new StreamFactory(),
+        private ?Configurator $configurator = null,
     ) {
-        $this->metricFactory = $metricFactory ?? new StreamFactory();
-        $this->resource = $resource;
-        $this->clock = $clock;
-        $this->instrumentationScopeFactory = $instrumentationScopeFactory;
-        $this->metricReaders = $metricReaders;
-        $this->viewRegistry = $viewRegistry;
-        $this->exemplarFilter = $exemplarFilter;
-        $this->stalenessHandlerFactory = $stalenessHandlerFactory;
         $this->instruments = new MeterInstruments();
 
         $registry = new MetricRegistry($contextStorage, $attributesFactory, $clock);
         $this->registry = $registry;
         $this->writer = $registry;
+        $this->destructors = new WeakMap();
+        $this->meters = new WeakMap();
     }
 
+    #[\Override]
     public function getMeter(
         string $name,
         ?string $version = null,
         ?string $schemaUrl = null,
-        iterable $attributes = []
+        iterable $attributes = [],
     ): MeterInterface {
         if ($this->closed || Sdk::isDisabled()) { //@todo create meter provider from factory, and move Sdk::isDisabled() there
             return new NoopMeter();
         }
 
-        return new Meter(
+        $meter = new Meter(
             $this->metricFactory,
             $this->resource,
             $this->clock,
@@ -86,9 +79,15 @@ final class MeterProvider implements MeterProviderInterface
             $this->instrumentationScopeFactory->create($name, $version, $schemaUrl, $attributes),
             $this->registry,
             $this->writer,
+            $this->destructors,
+            $this->configurator,
         );
+        $this->meters->offsetSet($meter, null);
+
+        return $meter;
     }
 
+    #[\Override]
     public function shutdown(): bool
     {
         if ($this->closed) {
@@ -107,6 +106,7 @@ final class MeterProvider implements MeterProviderInterface
         return $success;
     }
 
+    #[\Override]
     public function forceFlush(): bool
     {
         if ($this->closed) {
@@ -126,5 +126,21 @@ final class MeterProvider implements MeterProviderInterface
     public static function builder(): MeterProviderBuilder
     {
         return new MeterProviderBuilder();
+    }
+
+    /**
+     * Update the {@link Configurator} for a {@link MeterProvider}, which will reconfigure
+     *  all meters created from the provider.
+     *
+     * @experimental
+     */
+    #[\Override]
+    public function updateConfigurator(Configurator $configurator): void
+    {
+        $this->configurator = $configurator;
+
+        foreach ($this->meters as $meter => $unused) {
+            $meter->updateConfigurator($configurator);
+        }
     }
 }

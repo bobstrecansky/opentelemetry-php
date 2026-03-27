@@ -12,25 +12,26 @@ use OpenTelemetry\SDK\Logs\ReadWriteLogRecord;
 
 class SimpleLogRecordProcessor implements LogRecordProcessorInterface
 {
-    private LogRecordExporterInterface $exporter;
-    public function __construct(LogRecordExporterInterface $exporter)
+    public function __construct(private readonly LogRecordExporterInterface $exporter)
     {
-        $this->exporter = $exporter;
     }
 
     /**
      * @see https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/logs/sdk.md#onemit
      */
+    #[\Override]
     public function onEmit(ReadWriteLogRecord $record, ?ContextInterface $context = null): void
     {
         $this->exporter->export([$record]);
     }
 
+    #[\Override]
     public function shutdown(?CancellationInterface $cancellation = null): bool
     {
         return $this->exporter->shutdown($cancellation);
     }
 
+    #[\Override]
     public function forceFlush(?CancellationInterface $cancellation = null): bool
     {
         return $this->exporter->forceFlush($cancellation);

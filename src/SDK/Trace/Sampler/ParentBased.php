@@ -29,15 +29,10 @@ use OpenTelemetry\SDK\Trace\Span;
  */
 class ParentBased implements SamplerInterface
 {
-    private SamplerInterface $root;
-
-    private SamplerInterface $remoteParentSampler;
-
-    private SamplerInterface $remoteParentNotSampler;
-
-    private SamplerInterface $localParentSampler;
-
-    private SamplerInterface $localParentNotSampler;
+    private readonly SamplerInterface $remoteParentSampler;
+    private readonly SamplerInterface $remoteParentNotSampler;
+    private readonly SamplerInterface $localParentSampler;
+    private readonly SamplerInterface $localParentNotSampler;
 
     /**
      * ParentBased sampler delegates the sampling decision based on the parent context.
@@ -49,13 +44,12 @@ class ParentBased implements SamplerInterface
      * @param SamplerInterface|null $localParentNotSampler Sampler called for the span with the local not sampled parent. When null, `AlwaysOffSampler` is used.
      */
     public function __construct(
-        SamplerInterface $root,
+        private readonly SamplerInterface $root,
         ?SamplerInterface $remoteParentSampler = null,
         ?SamplerInterface $remoteParentNotSampler = null,
         ?SamplerInterface $localParentSampler = null,
-        ?SamplerInterface $localParentNotSampler = null
+        ?SamplerInterface $localParentNotSampler = null,
     ) {
-        $this->root = $root;
         $this->remoteParentSampler = $remoteParentSampler ?? new AlwaysOnSampler();
         $this->remoteParentNotSampler = $remoteParentNotSampler ?? new AlwaysOffSampler();
         $this->localParentSampler = $localParentSampler ?? new AlwaysOnSampler();
@@ -66,13 +60,14 @@ class ParentBased implements SamplerInterface
      * Invokes the respective delegate sampler when parent is set or uses root sampler for the root span.
      * {@inheritdoc}
      */
+    #[\Override]
     public function shouldSample(
         ContextInterface $parentContext,
         string $traceId,
         string $spanName,
         int $spanKind,
         AttributesInterface $attributes,
-        array $links
+        array $links,
     ): SamplingResult {
         $parentSpan = Span::fromContext($parentContext);
         $parentSpanContext = $parentSpan->getContext();
@@ -93,6 +88,7 @@ class ParentBased implements SamplerInterface
             : $this->localParentNotSampler->shouldSample(...func_get_args());
     }
 
+    #[\Override]
     public function getDescription(): string
     {
         return 'ParentBased+' . $this->root->getDescription();

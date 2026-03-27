@@ -7,19 +7,17 @@ namespace OpenTelemetry\SDK\Common\Configuration\Resolver;
 use OpenTelemetry\SDK\Common\Configuration\Configuration;
 
 /**
- * @interal
+ * @internal
  * @psalm-suppress TypeDoesNotContainType
  */
 class PhpIniResolver implements ResolverInterface
 {
-    private PhpIniAccessor $accessor;
-
-    public function __construct(?PhpIniAccessor $accessor = null)
+    public function __construct(private readonly PhpIniAccessor $accessor = new PhpIniAccessor())
     {
-        $this->accessor = $accessor ?? new PhpIniAccessor();
     }
 
-    public function retrieveValue(string $variableName)
+    #[\Override]
+    public function retrieveValue(string $variableName): mixed
     {
         $value = $this->accessor->get($variableName) ?: '';
         if (is_array($value)) {
@@ -29,6 +27,7 @@ class PhpIniResolver implements ResolverInterface
         return $value;
     }
 
+    #[\Override]
     public function hasVariable(string $variableName): bool
     {
         $value = $this->accessor->get($variableName);

@@ -16,6 +16,8 @@ splits:
     target: "https://${GH_TOKEN}@github.com/opentelemetry-php/api.git"
   - prefix: "src/SDK"
     target: "https://${GH_TOKEN}@github.com/opentelemetry-php/sdk.git"
+  - prefix: "src/Config/SDK"
+    target: "https://${GH_TOKEN}@github.com/opentelemetry-php/config-sdk.git"
   - prefix: "src/Contrib/Otlp"
     target: "https://${GH_TOKEN}@github.com/opentelemetry-php/exporter-otlp.git"
   - prefix: "src/Contrib/Grpc"
@@ -24,6 +26,8 @@ splits:
     target: "https://${GH_TOKEN}@github.com/opentelemetry-php/exporter-zipkin.git"
   - prefix: "src/Extension/Propagator/B3"
     target: "https://${GH_TOKEN}@github.com/opentelemetry-php/extension-propagator-b3.git"
+  - prefix: "src/Extension/Propagator/CloudTrace"
+    target: "https://${GH_TOKEN}@github.com/opentelemetry-php/extension-propagator-cloudtrace.git"
 
 # List of references to split (defined as regexp)
 origins:

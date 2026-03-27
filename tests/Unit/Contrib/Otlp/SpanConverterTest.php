@@ -7,6 +7,7 @@ namespace OpenTelemetry\Tests\Unit\Contrib\Otlp;
 use function bin2hex;
 use OpenTelemetry\API\Trace\SpanContext;
 use OpenTelemetry\API\Trace\SpanKind;
+use OpenTelemetry\API\Trace\TraceFlags;
 use OpenTelemetry\Contrib\Otlp\SpanConverter;
 use Opentelemetry\Proto\Common\V1\AnyValue;
 use Opentelemetry\Proto\Common\V1\ArrayValue;
@@ -15,19 +16,25 @@ use Opentelemetry\Proto\Resource\V1\Resource;
 use Opentelemetry\Proto\Trace\V1;
 use Opentelemetry\Proto\Trace\V1\ResourceSpans;
 use Opentelemetry\Proto\Trace\V1\ScopeSpans;
+use Opentelemetry\Proto\Trace\V1\Span as ProtoSpan;
+use Opentelemetry\Proto\Trace\V1\Span\Link as ProtoSpanLink;
 use Opentelemetry\Proto\Trace\V1\Span\SpanKind as ProtoSpanKind;
+use Opentelemetry\Proto\Trace\V1\SpanFlags;
 use OpenTelemetry\SDK\Common\Attribute\Attributes;
 use OpenTelemetry\SDK\Common\Instrumentation\InstrumentationScope;
 use OpenTelemetry\SDK\Resource\ResourceInfo;
 use OpenTelemetry\SDK\Trace\StatusData;
 use OpenTelemetry\Tests\Unit\SDK\Util\SpanData;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
-/**
- * @covers \OpenTelemetry\Contrib\Otlp\SpanConverter
- */
+#[CoversClass(SpanConverter::class)]
 class SpanConverterTest extends TestCase
 {
+    /**
+     * @psalm-suppress InvalidArgument,PossiblyNullReference
+     */
     public function test_convert_span_to_payload(): void
     {
         $context = SpanContext::getInvalid();
@@ -44,8 +51,9 @@ class SpanConverterTest extends TestCase
         /** @psalm-suppress InvalidArgument */
         $row = $converter->convert([$span])->getResourceSpans()[0]->getScopeSpans()[0]->getSpans()[0];
 
-        $this->assertSame($span->getContext()->getSpanId(), bin2hex($row->getSpanId()));
-        $this->assertSame($span->getContext()->getTraceId(), bin2hex($row->getTraceId()));
+        $this->assertSame($span->getContext()->getSpanId(), bin2hex((string) $row->getSpanId()));
+        $this->assertSame($span->getContext()->getTraceId(), bin2hex((string) $row->getTraceId()));
+        $this->assertSame(V1\SpanFlags::SPAN_FLAGS_CONTEXT_HAS_IS_REMOTE_MASK, $row->getFlags());
         $this->assertSame($span->getName(), $row->getName());
 
         $this->assertCount(2, $row->getAttributes());
@@ -56,12 +64,64 @@ class SpanConverterTest extends TestCase
 
         $this->assertSame($context->getTraceId(), bin2hex($link->getTraceId()));
         $this->assertSame($context->getSpanId(), bin2hex($link->getSpanId()));
+        $this->assertSame(V1\SpanFlags::SPAN_FLAGS_CONTEXT_HAS_IS_REMOTE_MASK, $link->getFlags());
         $this->assertCount(1, $link->getAttributes());
     }
 
-    /**
-     * @dataProvider attributeAreCoercedCorrectlyDataProvider
-     */
+    public function test_span_context_is_remote_flags(): void
+    {
+        $isFlagSet = static function (int $flags, int $mask): bool {
+            return ($flags & $mask) !== 0;
+        };
+
+        $isRemote = static function (int $flags) use ($isFlagSet): ?bool {
+            if (!$isFlagSet($flags, V1\SpanFlags::SPAN_FLAGS_CONTEXT_HAS_IS_REMOTE_MASK)) {
+                return null;
+            }
+
+            return $isFlagSet($flags, V1\SpanFlags::SPAN_FLAGS_CONTEXT_IS_REMOTE_MASK);
+        };
+
+        $convertSpanData = static function (SpanData $spanData): ProtoSpan {
+            $converter = new SpanConverter();
+
+            /** @psalm-suppress InvalidArgument,PossiblyNullReference */
+            return $converter->convert([$spanData])->getResourceSpans()[0]->getScopeSpans()[0]->getSpans()[0];
+        };
+
+        /** @psalm-suppress InvalidNullableReturnType */
+        $getLink = static function (ProtoSpan $protoSpan, int $linkIndex): ProtoSpanLink {
+            /** @psalm-suppress InvalidArgument,NullableReturnStatement */
+            return $protoSpan->getLinks()[$linkIndex];
+        };
+
+        // Span with remote parent
+        $convertedSpan = $convertSpanData(
+            (new SpanData())
+                ->setParentContext(SpanContext::createFromRemoteParent('0000000000000001', '00000001'))
+                ->setContext(SpanContext::create('0000000000000001', '00000002'))
+                ->addLink(SpanContext::createFromRemoteParent('0000000000000001', '00000003'), Attributes::create([]))
+                ->addLink(SpanContext::createFromRemoteParent('0000000000000001', '00000004', TraceFlags::SAMPLED), Attributes::create([]))
+        );
+        $this->assertTrue($isRemote($convertedSpan->getFlags()));
+        $this->assertTrue($isRemote($getLink($convertedSpan, 0)->getFlags()));
+        $this->assertTrue($isRemote($getLink($convertedSpan, 1)->getFlags()));
+        $this->assertTrue($isFlagSet($getLink($convertedSpan, 1)->getFlags(), TraceFlags::SAMPLED));
+
+        // Span without parent
+        $convertedSpan = $convertSpanData((new SpanData())->setContext(SpanContext::create('0000000000000001', '00000001')));
+        $this->assertFalse($isRemote($convertedSpan->getFlags()));
+
+        // Span with local parent
+        $convertedSpan = $convertSpanData(
+            (new SpanData())
+                ->setParentContext(SpanContext::create('0000000000000001', '00000001'))
+                ->setContext(SpanContext::create('0000000000000001', '00000002'))
+        );
+        $this->assertFalse($isRemote($convertedSpan->getFlags()));
+    }
+
+    #[DataProvider('attributeAreCoercedCorrectlyDataProvider')]
     public function test_attribute_are_coerced_correctly($actual, $expected): void
     {
         $span = (new SpanData())
@@ -71,6 +131,7 @@ class SpanConverterTest extends TestCase
         $converter = new SpanConverter();
         /** @psalm-suppress InvalidArgument */
         $converted = $converter->convert([$span])->getResourceSpans()[0];
+        /** @psalm-suppress PossiblyNullReference */
         $attributes = $converted->getScopeSpans()[0]->getSpans()[0]->getAttributes();
 
         // Check that we can convert all attributes to tags
@@ -200,6 +261,7 @@ class SpanConverterTest extends TestCase
                             'start_time_unix_nano' => $start_time,
                             'end_time_unix_nano' => $end_time,
                             'kind' => V1\Span\SpanKind::SPAN_KIND_INTERNAL,
+                            'flags' => SpanFlags::SPAN_FLAGS_CONTEXT_HAS_IS_REMOTE_MASK,
                             'status' => new V1\Status([ 'code' => V1\Status\StatusCode::STATUS_CODE_OK ]),
                             'attributes' => [
                                 new KeyValue([
@@ -248,10 +310,13 @@ class SpanConverterTest extends TestCase
         $resource->method('getAttributes')->willReturn($attributes);
         $converter = new SpanConverter();
         $result = $converter->convert([$span, $span, $span])->getResourceSpans();
-        /** @psalm-suppress InvalidArgument */
+        /** @psalm-suppress InvalidArgument,PossiblyNullReference */
         $this->assertCount(2, $result[0]->getResource()->getAttributes());
     }
 
+    /**
+     * @psalm-suppress InvalidArgument
+     */
     public function test_multiple_resources_result_in_multiple_resource_spans(): void
     {
         $resourceA = ResourceInfo::create(Attributes::create(['foo' => 'bar']));
@@ -264,18 +329,19 @@ class SpanConverterTest extends TestCase
         $this->assertCount(2, $result);
     }
 
+    /**
+     * @psalm-suppress InvalidArgument
+     */
     public function test_otlp_no_spans(): void
     {
         $this->assertCount(0, (new SpanConverter())->convert([])->getResourceSpans());
     }
 
-    /**
-     * @dataProvider spanKindProvider
-     */
+    #[DataProvider('spanKindProvider')]
     public function test_span_kind($kind, $expected): void
     {
         $span = (new SpanData())->setKind($kind);
-        /** @psalm-suppress InvalidArgument */
+        /** @psalm-suppress InvalidArgument,PossiblyNullReference */
         $row = (new SpanConverter())->convert([$span])->getResourceSpans()[0]->getScopeSpans()[0]->getSpans()[0];
         $this->assertSame($expected, $row->getKind());
     }
@@ -295,7 +361,7 @@ class SpanConverterTest extends TestCase
     public function test_span_with_error_status(): void
     {
         $span = (new SpanData())->setStatus(StatusData::error());
-        /** @psalm-suppress InvalidArgument */
+        /** @psalm-suppress InvalidArgument,PossiblyNullReference */
         $row = (new SpanConverter())->convert([$span])->getResourceSpans()[0]->getScopeSpans()[0]->getSpans()[0];
         $this->assertSame(V1\Status\StatusCode::STATUS_CODE_ERROR, $row->getStatus()->getCode());
     }

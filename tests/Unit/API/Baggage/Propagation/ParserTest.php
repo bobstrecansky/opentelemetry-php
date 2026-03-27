@@ -7,17 +7,18 @@ namespace OpenTelemetry\Tests\Unit\API\Baggage\Propagation;
 use OpenTelemetry\API\Baggage\BaggageBuilder;
 use OpenTelemetry\API\Baggage\BaggageBuilderInterface;
 use OpenTelemetry\API\Baggage\Propagation\Parser;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
-/**
- * @covers \OpenTelemetry\API\Baggage\Propagation\Parser
- */
+#[CoversClass(Parser::class)]
 class ParserTest extends TestCase
 {
     /** @var BaggageBuilderInterface&MockObject */
     private BaggageBuilderInterface $builder;
 
+    #[\Override]
     public function setUp(): void
     {
         $this->builder = $this->createMock(BaggageBuilderInterface::class);
@@ -30,9 +31,7 @@ class ParserTest extends TestCase
         $parser->parseInto($this->builder);
     }
 
-    /**
-     * @dataProvider headerProvider
-     */
+    #[DataProvider('headerProvider')]
     public function test_parse_into(string $header): void
     {
         $parser = new Parser($header);
@@ -77,9 +76,7 @@ class ParserTest extends TestCase
         }
     }
 
-    /**
-     * @dataProvider invalidHeaderProvider
-     */
+    #[DataProvider('invalidHeaderProvider')]
     public function test_parse_into_with_invalid_header(string $header): void
     {
         $parser = new Parser($header);
@@ -100,6 +97,7 @@ class ParserTest extends TestCase
             'empty key' => ['=value'],
             'key with invalid char' => ['@foo=bar'],
             'value with invalid char' => ['foo="bar"'],
+            'missing value' => ['key1='],
         ];
     }
 }

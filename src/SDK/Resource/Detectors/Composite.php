@@ -10,19 +10,17 @@ use OpenTelemetry\SDK\Resource\ResourceInfoFactory;
 
 final class Composite implements ResourceDetectorInterface
 {
-    private iterable $resourceDetectors;
-
     /**
      * @param iterable<ResourceDetectorInterface> $resourceDetectors
      */
-    public function __construct(iterable $resourceDetectors)
+    public function __construct(private readonly iterable $resourceDetectors)
     {
-        $this->resourceDetectors = $resourceDetectors;
     }
 
+    #[\Override]
     public function getResource(): ResourceInfo
     {
-        $resource = ResourceInfoFactory::emptyResource();
+        $resource = ResourceInfoFactory::mandatoryResource();
         foreach ($this->resourceDetectors as $resourceDetector) {
             $resource = $resource->merge($resourceDetector->getResource());
         }

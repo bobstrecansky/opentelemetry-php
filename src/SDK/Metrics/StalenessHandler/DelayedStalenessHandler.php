@@ -14,19 +14,17 @@ use OpenTelemetry\SDK\Metrics\StalenessHandlerInterface;
  */
 final class DelayedStalenessHandler implements StalenessHandlerInterface, ReferenceCounterInterface
 {
-    private Closure $stale;
-    private Closure $freshen;
-
     /** @var Closure[]|null */
     private ?array $onStale = [];
     private int $count = 0;
 
-    public function __construct(Closure $stale, Closure $freshen)
-    {
-        $this->stale = $stale;
-        $this->freshen = $freshen;
+    public function __construct(
+        private readonly Closure $stale,
+        private readonly Closure $freshen,
+    ) {
     }
 
+    #[\Override]
     public function acquire(bool $persistent = false): void
     {
         if ($this->count === 0) {
@@ -40,6 +38,7 @@ final class DelayedStalenessHandler implements StalenessHandlerInterface, Refere
         }
     }
 
+    #[\Override]
     public function release(): void
     {
         if (--$this->count || $this->onStale === null) {
@@ -49,6 +48,7 @@ final class DelayedStalenessHandler implements StalenessHandlerInterface, Refere
         ($this->stale)($this);
     }
 
+    #[\Override]
     public function onStale(Closure $callback): void
     {
         if ($this->onStale === null) {

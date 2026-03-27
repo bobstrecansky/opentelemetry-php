@@ -97,13 +97,15 @@ final class B3MultiPropagator implements TextMapPropagatorInterface
     }
 
     /** {@inheritdoc} */
+    #[\Override]
     public function fields(): array
     {
         return self::FIELDS;
     }
 
     /** {@inheritdoc} */
-    public function inject(&$carrier, PropagationSetterInterface $setter = null, ContextInterface $context = null): void
+    #[\Override]
+    public function inject(&$carrier, ?PropagationSetterInterface $setter = null, ?ContextInterface $context = null): void
     {
         $setter ??= ArrayAccessGetterSetter::getInstance();
         $context ??= Context::getCurrent();
@@ -125,7 +127,8 @@ final class B3MultiPropagator implements TextMapPropagatorInterface
         }
     }
 
-    public function extract($carrier, PropagationGetterInterface $getter = null, ContextInterface $context = null): ContextInterface
+    #[\Override]
+    public function extract($carrier, ?PropagationGetterInterface $getter = null, ?ContextInterface $context = null): ContextInterface
     {
         $getter ??= ArrayAccessGetterSetter::getInstance();
         $context ??= Context::getCurrent();

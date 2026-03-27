@@ -18,11 +18,8 @@ use OpenTelemetry\Context\Propagation\TextMapPropagatorInterface;
  */
 final class B3Propagator implements TextMapPropagatorInterface
 {
-    private TextMapPropagatorInterface $propagator;
-
-    private function __construct(TextMapPropagatorInterface $propagator)
+    private function __construct(private readonly TextMapPropagatorInterface $propagator)
     {
-        $this->propagator = $propagator;
     }
 
     public static function getB3SingleHeaderInstance(): self
@@ -39,19 +36,22 @@ final class B3Propagator implements TextMapPropagatorInterface
     }
 
     /** {@inheritdoc} */
+    #[\Override]
     public function fields(): array
     {
         return $this->propagator->fields();
     }
 
     /** {@inheritdoc} */
-    public function inject(&$carrier, PropagationSetterInterface $setter = null, ContextInterface $context = null): void
+    #[\Override]
+    public function inject(&$carrier, ?PropagationSetterInterface $setter = null, ?ContextInterface $context = null): void
     {
         $this->propagator->inject($carrier, $setter, $context);
     }
 
     /** {@inheritdoc} */
-    public function extract($carrier, PropagationGetterInterface $getter = null, ContextInterface $context = null): ContextInterface
+    #[\Override]
+    public function extract($carrier, ?PropagationGetterInterface $getter = null, ?ContextInterface $context = null): ContextInterface
     {
         $getter ??= ArrayAccessGetterSetter::getInstance();
         $context ??= Context::getCurrent();

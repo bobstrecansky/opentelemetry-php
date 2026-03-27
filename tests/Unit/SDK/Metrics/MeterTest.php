@@ -5,16 +5,21 @@ declare(strict_types=1);
 namespace OpenTelemetry\Tests\Unit\SDK\Metrics;
 
 use function func_get_arg;
+use OpenTelemetry\API\Common\Time\Clock;
 use OpenTelemetry\SDK\Common\Attribute\Attributes;
 use OpenTelemetry\SDK\Common\Instrumentation\InstrumentationScope;
 use OpenTelemetry\SDK\Common\Instrumentation\InstrumentationScopeFactory;
-use OpenTelemetry\SDK\Common\Time\ClockFactory;
+use OpenTelemetry\SDK\Common\InstrumentationScope\Configurator;
 use OpenTelemetry\SDK\Metrics\AggregationInterface;
 use OpenTelemetry\SDK\Metrics\DefaultAggregationProviderInterface;
 use OpenTelemetry\SDK\Metrics\Instrument;
 use OpenTelemetry\SDK\Metrics\InstrumentType;
+use OpenTelemetry\SDK\Metrics\Meter;
 use OpenTelemetry\SDK\Metrics\MeterProvider;
+use OpenTelemetry\SDK\Metrics\MeterProviderBuilder;
+use OpenTelemetry\SDK\Metrics\MetricExporter\InMemoryExporter;
 use OpenTelemetry\SDK\Metrics\MetricFactoryInterface;
+use OpenTelemetry\SDK\Metrics\MetricReader\ExportingReader;
 use OpenTelemetry\SDK\Metrics\MetricReaderInterface;
 use OpenTelemetry\SDK\Metrics\MetricSourceRegistryInterface;
 use OpenTelemetry\SDK\Metrics\StalenessHandler\ImmediateStalenessHandlerFactory;
@@ -22,16 +27,18 @@ use OpenTelemetry\SDK\Metrics\View\CriteriaViewRegistry;
 use OpenTelemetry\SDK\Metrics\ViewProjection;
 use OpenTelemetry\SDK\Metrics\ViewRegistryInterface;
 use OpenTelemetry\SDK\Resource\ResourceInfoFactory;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DoesNotPerformAssertions;
 use PHPUnit\Framework\TestCase;
 
-/**
- * @covers \OpenTelemetry\SDK\Metrics\Meter
- */
+#[CoversClass(Meter::class)]
 final class MeterTest extends TestCase
 {
     public function test_create_counter(): void
     {
         $metricFactory = $this->createMock(MetricFactoryInterface::class);
+        $meterProvider = $this->createMeterProviderForMetricFactory($metricFactory);
+        $meter = $meterProvider->getMeter('test');
         $metricFactory->expects($this->once())->method('createSynchronousWriter')
             ->with(
                 $this->anything(),
@@ -44,14 +51,14 @@ final class MeterTest extends TestCase
             )
             ->willReturn([]);
 
-        $meterProvider = $this->createMeterProviderForMetricFactory($metricFactory);
-        $meter = $meterProvider->getMeter('test');
         $meter->createCounter('name', 'unit', 'description');
     }
 
     public function test_create_histogram(): void
     {
         $metricFactory = $this->createMock(MetricFactoryInterface::class);
+        $meterProvider = $this->createMeterProviderForMetricFactory($metricFactory);
+        $meter = $meterProvider->getMeter('test');
         $metricFactory->expects($this->once())->method('createSynchronousWriter')
             ->with(
                 $this->anything(),
@@ -64,14 +71,65 @@ final class MeterTest extends TestCase
             )
             ->willReturn([]);
 
+        $meter->createHistogram('name', 'unit', 'description');
+    }
+
+    public function test_create_histogram_advisory(): void
+    {
+        $metricFactory = $this->createMock(MetricFactoryInterface::class);
         $meterProvider = $this->createMeterProviderForMetricFactory($metricFactory);
         $meter = $meterProvider->getMeter('test');
-        $meter->createHistogram('name', 'unit', 'description');
+        $metricFactory->expects($this->once())->method('createSynchronousWriter')
+            ->with(
+                $this->anything(),
+                $this->anything(),
+                new InstrumentationScope('test', null, null, Attributes::create([])),
+                new Instrument(
+                    InstrumentType::HISTOGRAM,
+                    'http.server.duration',
+                    's',
+                    'Measures the duration of inbound HTTP requests.',
+                    ['ExplicitBucketBoundaries' => [0, 0.005, 0.01, 0.025, 0.05, 0.075, 0.1, 0.25, 0.5, 0.75, 1, 2.5, 5, 7.5, 10]],
+                ),
+                $this->anything(),
+                $this->anything(),
+                $this->anything(),
+            )
+            ->willReturn([]);
+
+        $meter->createHistogram(
+            'http.server.duration',
+            's',
+            'Measures the duration of inbound HTTP requests.',
+            ['ExplicitBucketBoundaries' => [0, 0.005, 0.01, 0.025, 0.05, 0.075, 0.1, 0.25, 0.5, 0.75, 1, 2.5, 5, 7.5, 10]],
+        );
+    }
+
+    public function test_create_gauge(): void
+    {
+        $metricFactory = $this->createMock(MetricFactoryInterface::class);
+        $meterProvider = $this->createMeterProviderForMetricFactory($metricFactory);
+        $meter = $meterProvider->getMeter('test');
+        $metricFactory->expects($this->once())->method('createSynchronousWriter')
+            ->with(
+                $this->anything(),
+                $this->anything(),
+                new InstrumentationScope('test', null, null, Attributes::create([])),
+                new Instrument(InstrumentType::GAUGE, 'name', 'unit', 'description'),
+                $this->anything(),
+                $this->anything(),
+                $this->anything(),
+            )
+            ->willReturn([]);
+
+        $meter->createGauge('name', 'unit', 'description');
     }
 
     public function test_create_up_down_counter(): void
     {
         $metricFactory = $this->createMock(MetricFactoryInterface::class);
+        $meterProvider = $this->createMeterProviderForMetricFactory($metricFactory);
+        $meter = $meterProvider->getMeter('test');
         $metricFactory->expects($this->once())->method('createSynchronousWriter')
             ->with(
                 $this->anything(),
@@ -84,14 +142,14 @@ final class MeterTest extends TestCase
             )
             ->willReturn([]);
 
-        $meterProvider = $this->createMeterProviderForMetricFactory($metricFactory);
-        $meter = $meterProvider->getMeter('test');
         $meter->createUpDownCounter('name', 'unit', 'description');
     }
 
     public function test_create_observable_counter(): void
     {
         $metricFactory = $this->createMock(MetricFactoryInterface::class);
+        $meterProvider = $this->createMeterProviderForMetricFactory($metricFactory);
+        $meter = $meterProvider->getMeter('test');
         $metricFactory->expects($this->once())->method('createAsynchronousObserver')
             ->with(
                 $this->anything(),
@@ -103,14 +161,14 @@ final class MeterTest extends TestCase
             )
             ->willReturn([]);
 
-        $meterProvider = $this->createMeterProviderForMetricFactory($metricFactory);
-        $meter = $meterProvider->getMeter('test');
         $meter->createObservableCounter('name', 'unit', 'description');
     }
 
     public function test_create_observable_gauge(): void
     {
         $metricFactory = $this->createMock(MetricFactoryInterface::class);
+        $meterProvider = $this->createMeterProviderForMetricFactory($metricFactory);
+        $meter = $meterProvider->getMeter('test');
         $metricFactory->expects($this->once())->method('createAsynchronousObserver')
             ->with(
                 $this->anything(),
@@ -122,14 +180,14 @@ final class MeterTest extends TestCase
             )
             ->willReturn([]);
 
-        $meterProvider = $this->createMeterProviderForMetricFactory($metricFactory);
-        $meter = $meterProvider->getMeter('test');
         $meter->createObservableGauge('name', 'unit', 'description');
     }
 
     public function test_create_observable_up_down_counter(): void
     {
         $metricFactory = $this->createMock(MetricFactoryInterface::class);
+        $meterProvider = $this->createMeterProviderForMetricFactory($metricFactory);
+        $meter = $meterProvider->getMeter('test');
         $metricFactory->expects($this->once())->method('createAsynchronousObserver')
             ->with(
                 $this->anything(),
@@ -141,8 +199,6 @@ final class MeterTest extends TestCase
             )
             ->willReturn([]);
 
-        $meterProvider = $this->createMeterProviderForMetricFactory($metricFactory);
-        $meter = $meterProvider->getMeter('test');
         $meter->createObservableUpDownCounter('name', 'unit', 'description');
     }
 
@@ -150,6 +206,8 @@ final class MeterTest extends TestCase
     public function test_reuses_writer_when_not_stale(): void
     {
         $metricFactory = $this->createMock(MetricFactoryInterface::class);
+        $meterProvider = $this->createMeterProviderForMetricFactory($metricFactory);
+        $meter = $meterProvider->getMeter('test');
         $metricFactory->expects($this->once())->method('createSynchronousWriter')
             ->with(
                 $this->anything(),
@@ -162,8 +220,6 @@ final class MeterTest extends TestCase
             )
             ->willReturn([]);
 
-        $meterProvider = $this->createMeterProviderForMetricFactory($metricFactory);
-        $meter = $meterProvider->getMeter('test');
         $counter = $meter->createCounter('name', 'unit', 'description');
         $counter = $meter->createCounter('name', 'unit', 'description');
     }
@@ -171,6 +227,8 @@ final class MeterTest extends TestCase
     public function test_releases_writer_on_stale(): void
     {
         $metricFactory = $this->createMock(MetricFactoryInterface::class);
+        $meterProvider = $this->createMeterProviderForMetricFactory($metricFactory);
+        $meter = $meterProvider->getMeter('test');
         $metricFactory->expects($this->exactly(2))->method('createSynchronousWriter')
             ->with(
                 $this->anything(),
@@ -183,8 +241,6 @@ final class MeterTest extends TestCase
             )
             ->willReturn([]);
 
-        $meterProvider = $this->createMeterProviderForMetricFactory($metricFactory);
-        $meter = $meterProvider->getMeter('test');
         $meter->createCounter('name', 'unit', 'description');
         $meter->createCounter('name', 'unit', 'description');
     }
@@ -193,6 +249,8 @@ final class MeterTest extends TestCase
     public function test_reuses_observer_when_not_stale(): void
     {
         $metricFactory = $this->createMock(MetricFactoryInterface::class);
+        $meterProvider = $this->createMeterProviderForMetricFactory($metricFactory);
+        $meter = $meterProvider->getMeter('test');
         $metricFactory->expects($this->once())->method('createAsynchronousObserver')
             ->with(
                 $this->anything(),
@@ -204,8 +262,6 @@ final class MeterTest extends TestCase
             )
             ->willReturn([]);
 
-        $meterProvider = $this->createMeterProviderForMetricFactory($metricFactory);
-        $meter = $meterProvider->getMeter('test');
         $observer = $meter->createObservableCounter('name', 'unit', 'description');
         $observer = $meter->createObservableCounter('name', 'unit', 'description');
     }
@@ -213,6 +269,8 @@ final class MeterTest extends TestCase
     public function test_releases_observer_on_stale(): void
     {
         $metricFactory = $this->createMock(MetricFactoryInterface::class);
+        $meterProvider = $this->createMeterProviderForMetricFactory($metricFactory);
+        $meter = $meterProvider->getMeter('test');
         $metricFactory->expects($this->exactly(2))->method('createAsynchronousObserver')
             ->with(
                 $this->anything(),
@@ -224,12 +282,14 @@ final class MeterTest extends TestCase
             )
             ->willReturn([]);
 
-        $meterProvider = $this->createMeterProviderForMetricFactory($metricFactory);
-        $meter = $meterProvider->getMeter('test');
         $meter->createObservableCounter('name', 'unit', 'description');
         $meter->createObservableCounter('name', 'unit', 'description');
     }
 
+    /**
+     * @psalm-suppress InvalidOperand
+     * @psalm-suppress PossiblyUndefinedArrayOffset
+     */
     public function test_uses_view_registry_to_create_views(): void
     {
         $aggregation = $this->createMock(AggregationInterface::class);
@@ -258,6 +318,10 @@ final class MeterTest extends TestCase
         $meter->createCounter('name');
     }
 
+    /**
+     * @psalm-suppress InvalidOperand
+     * @psalm-suppress PossiblyUndefinedArrayOffset
+     */
     public function test_uses_default_aggregation_if_view_aggregation_null(): void
     {
         $aggregation = $this->createMock(AggregationInterface::class);
@@ -285,6 +349,10 @@ final class MeterTest extends TestCase
         $meter->createCounter('name');
     }
 
+    /**
+     * @psalm-suppress InvalidOperand
+     * @psalm-suppress PossiblyUndefinedArrayOffset
+     */
     public function test_uses_default_view_if_null_views_returned(): void
     {
         $aggregation = $this->createMock(AggregationInterface::class);
@@ -310,15 +378,25 @@ final class MeterTest extends TestCase
         $meter->createCounter('name');
     }
 
+    #[DoesNotPerformAssertions]
+    public function test_update_configurator_with_no_writers(): void
+    {
+        $mp = (new MeterProviderBuilder())
+            ->addReader(new ExportingReader(new InMemoryExporter()))
+            ->build();
+        $mp->getMeter('test')->createObservableCounter('c')->observe(static fn () => null);
+        $mp->updateConfigurator(Configurator::meter());
+    }
+
     /**
      * @param iterable<MetricReaderInterface&MetricSourceRegistryInterface&DefaultAggregationProviderInterface> $metricReaders
      */
-    private function createMeterProviderForMetricFactory(MetricFactoryInterface $metricFactory, ViewRegistryInterface $viewRegistry = null, iterable $metricReaders = []): MeterProvider
+    private function createMeterProviderForMetricFactory(MetricFactoryInterface $metricFactory, ?ViewRegistryInterface $viewRegistry = null, iterable $metricReaders = []): MeterProvider
     {
         return new MeterProvider(
             null,
             ResourceInfoFactory::emptyResource(),
-            ClockFactory::getDefault(),
+            Clock::getDefault(),
             Attributes::factory(),
             new InstrumentationScopeFactory(Attributes::factory()),
             $metricReaders,

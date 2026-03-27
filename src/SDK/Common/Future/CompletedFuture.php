@@ -13,22 +13,20 @@ use Throwable;
  */
 final class CompletedFuture implements FutureInterface
 {
-    /** @var T */
-    private $value;
-
     /**
      * @param T $value
      */
-    public function __construct($value)
+    public function __construct(private $value)
     {
-        $this->value = $value;
     }
 
+    #[\Override]
     public function await()
     {
         return $this->value;
     }
 
+    #[\Override]
     public function map(Closure $closure): FutureInterface
     {
         $c = $closure;
@@ -41,6 +39,7 @@ final class CompletedFuture implements FutureInterface
         }
     }
 
+    #[\Override]
     public function catch(Closure $closure): FutureInterface
     {
         return $this;

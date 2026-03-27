@@ -6,15 +6,18 @@ namespace OpenTelemetry\Example;
 
 require __DIR__ . '/../../../vendor/autoload.php';
 
+use OpenTelemetry\API\Common\Time\Clock;
 use OpenTelemetry\Contrib\Otlp\ContentTypes;
 use OpenTelemetry\Contrib\Otlp\SpanExporter;
 use OpenTelemetry\SDK\Common\Export\Stream\StreamTransportFactory;
-use OpenTelemetry\SDK\Common\Time\ClockFactory;
 use OpenTelemetry\SDK\Trace\SpanProcessor\BatchSpanProcessor;
 use OpenTelemetry\SDK\Trace\TracerProvider;
 
 $filename = sys_get_temp_dir() . '/traces.jsonl';
 $file = fopen($filename, 'a');
+if ($file === false) {
+    throw new \RuntimeException('Failed to open file for writing: ' . $filename);
+}
 $transport = (new StreamTransportFactory())->create($file, ContentTypes::NDJSON);
 $exporter = new SpanExporter($transport);
 
@@ -23,7 +26,7 @@ echo 'Starting OTLP example';
 $tracerProvider =  new TracerProvider(
     new BatchSpanProcessor(
         $exporter,
-        ClockFactory::getDefault()
+        Clock::getDefault()
     )
 );
 $tracer = $tracerProvider->getTracer('io.opentelemetry.contrib.php');

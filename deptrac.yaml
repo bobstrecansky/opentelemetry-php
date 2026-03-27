@@ -14,39 +14,43 @@ deptrac:
         - ./src
         - ./proto
         - ./tests
+        - ./deptrac/polyfills
+        - ./vendor/symfony/polyfill-php83/Resources/stubs
     exclude_files:
         - '#.*test.*#'
     layers:
       -   name: API
           collectors:
-              -   type: className
-                  regex: ^OpenTelemetry\\API\\*
+              -   type: directory
+                  value: src/API/.*
       -   name: SDK
           collectors:
-              -   type: className
-                  regex: ^OpenTelemetry\\SDK\\*
+              -   type: directory
+                  value: src/SDK/.*
+      -   name: ConfigSDK
+          collectors:
+              -   type: directory
+                  value: src/Config/SDK/.*
       -   name: Context
           collectors:
-              -   type: className
-                  regex: ^OpenTelemetry\\Context\\*
+              -   type: directory
+                  value: src/Context/.*
       -   name: SemConv
           collectors:
-              -   type: className
-                  regex: ^OpenTelemetry\\SemConv\\*
+              -   type: directory
+                  value: src/SemConv/.*
       -   name: Contrib
           collectors:
-              -   type: className
-                  regex: ^OpenTelemetry\\Contrib\\*
+              -   type: directory
+                  value: src/Contrib/.*
       -   name: Extension
           collectors:
-            -   type: className
-                regex: ^OpenTelemetry\\Extension\\*
+              -   type: directory
+                  value: src/Extension/.*
       -   name: OtelProto
           collectors:
-              -   type: className
-                  regex: ^OpenTelemetry\\Proto\\*
-              -   type: className
-                  regex: ^GPBMetadata\\Opentelemetry\\*
+              -   type: directory
+                  value: proto/otel/.*
       -   name: GoogleProtobuf
           collectors:
               -   type: className
@@ -79,20 +83,79 @@ deptrac:
           collectors:
               - type: className
                 regex: ^Composer\\*
-
+      -   name: HttpClients
+          collectors:
+              - type: className
+                value: ^Symfony\\Component\\HttpClient\\*
+              - type: className
+                value: ^GuzzleHttp\\*
+              - type: className
+                value: ^Buzz\\*
+      -   name: SPI
+          collectors:
+              - type: className
+                value: ^Nevay\\SPI\\*
+      -   name: SymfonyConfig
+          collectors:
+              - type: className
+                value: ^Symfony\\Component\\Config\\*
+              - type: className
+                value: ^Symfony\\Component\\Yaml\\*
+              - type: className
+                value: ^Symfony\\Component\\VarExporter\\*
+      -   name: RamseyUuid
+          collectors:
+              - type: className
+                regex: ^Ramsey\\Uuid\\*
+      -   name: NyholmPsr7Server
+          collectors:
+              - type: className
+                regex: ^Nyholm\\Psr7Server\\*
+      -   name: Polyfills
+          collectors:
+              - type: directory
+                value: deptrac/polyfills/.*
+              - type: directory
+                value: vendor/symfony/polyfill-php83
+      -   name: DotenvProvider
+          collectors:
+            - type: className
+              regex: ^Symfony\\Component\\Dotenv\\*
+            - type: className
+              regex: ^Dotenv\\*
     ruleset:
       Context:
           - FFI
+          - Polyfills
       SemConv: ~
+      ConfigSDK:
+          - SymfonyConfig
+          - API
+          - SDK
+          - SPI
+          - PsrLog
+          - Composer
+          - Context
+          - Contrib
+          - Extension
+          - Polyfills
+          - DotenvProvider
       API:
           - Context
-          - SemConv
           - PsrLog
+          - SPI
+          - Polyfills
       SDK:
           - +API
+          - ConfigSDK
+          - SemConv
           - PsrHttp
           - HttpPlug
           - Composer
+          - HttpClients
+          - SPI
+          - RamseyUuid
+          - NyholmPsr7Server
       Contrib:
           - +SDK
           - +OtelProto

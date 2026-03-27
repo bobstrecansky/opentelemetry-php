@@ -10,13 +10,11 @@ use OpenTelemetry\SDK\Metrics\View\SelectionCriteriaInterface;
 
 final class InstrumentationScopeSchemaUrlCriteria implements SelectionCriteriaInterface
 {
-    private ?string $schemaUrl;
-
-    public function __construct(?string $schemaUrl)
+    public function __construct(private readonly ?string $schemaUrl)
     {
-        $this->schemaUrl = $schemaUrl;
     }
 
+    #[\Override]
     public function accepts(Instrument $instrument, InstrumentationScopeInterface $instrumentationScope): bool
     {
         return $this->schemaUrl === $instrumentationScope->getSchemaUrl();

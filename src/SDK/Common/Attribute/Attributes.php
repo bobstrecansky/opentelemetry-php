@@ -6,20 +6,21 @@ namespace OpenTelemetry\SDK\Common\Attribute;
 
 use function array_key_exists;
 use IteratorAggregate;
+use JsonSerializable;
 use Traversable;
 
-final class Attributes implements AttributesInterface, IteratorAggregate
+/**
+ * @psalm-suppress MissingTemplateParam
+ */
+final class Attributes implements AttributesInterface, IteratorAggregate, JsonSerializable
 {
-    private array $attributes;
-    private int $droppedAttributesCount;
-
     /**
      * @internal
      */
-    public function __construct(array $attributes, int $droppedAttributesCount)
-    {
-        $this->attributes = $attributes;
-        $this->droppedAttributesCount = $droppedAttributesCount;
+    public function __construct(
+        private readonly array $attributes,
+        private readonly int $droppedAttributesCount,
+    ) {
     }
 
     public static function create(iterable $attributes): AttributesInterface
@@ -32,22 +33,32 @@ final class Attributes implements AttributesInterface, IteratorAggregate
         return new AttributesFactory($attributeCountLimit, $attributeValueLengthLimit);
     }
 
+    #[\Override]
     public function has(string $name): bool
     {
         return array_key_exists($name, $this->attributes);
     }
 
+    #[\Override]
     public function get(string $name)
     {
         return $this->attributes[$name] ?? null;
     }
 
     /** @psalm-mutation-free */
+    #[\Override]
     public function count(): int
     {
         return \count($this->attributes);
     }
 
+    #[\Override]
+    public function jsonSerialize(): mixed
+    {
+        return $this->attributes;
+    }
+
+    #[\Override]
     public function getIterator(): Traversable
     {
         foreach ($this->attributes as $key => $value) {
@@ -55,11 +66,13 @@ final class Attributes implements AttributesInterface, IteratorAggregate
         }
     }
 
+    #[\Override]
     public function toArray(): array
     {
         return $this->attributes;
     }
 
+    #[\Override]
     public function getDroppedAttributesCount(): int
     {
         return $this->droppedAttributesCount;

@@ -19,19 +19,14 @@ use OpenTelemetry\SDK\Metrics\Data;
 final class ExplicitBucketHistogramAggregation implements AggregationInterface
 {
     /**
-     * @var list<float|int>
-     * @readonly
-     */
-    public array $boundaries;
-
-    /**
      * @param list<float|int> $boundaries strictly ascending histogram bucket boundaries
      */
-    public function __construct(array $boundaries)
-    {
-        $this->boundaries = $boundaries;
+    public function __construct(
+        public readonly array $boundaries,
+    ) {
     }
 
+    #[\Override]
     public function initialize(): ExplicitBucketHistogramSummary
     {
         return new ExplicitBucketHistogramSummary(
@@ -45,7 +40,9 @@ final class ExplicitBucketHistogramAggregation implements AggregationInterface
 
     /**
      * @param ExplicitBucketHistogramSummary $summary
+     * @psalm-suppress InvalidArrayOffset
      */
+    #[\Override]
     public function record($summary, $value, AttributesInterface $attributes, ContextInterface $context, int $timestamp): void
     {
         $boundariesCount = count($this->boundaries);
@@ -62,6 +59,7 @@ final class ExplicitBucketHistogramAggregation implements AggregationInterface
      * @param ExplicitBucketHistogramSummary $left
      * @param ExplicitBucketHistogramSummary $right
      */
+    #[\Override]
     public function merge($left, $right): ExplicitBucketHistogramSummary
     {
         $count = $left->count + $right->count;
@@ -86,6 +84,7 @@ final class ExplicitBucketHistogramAggregation implements AggregationInterface
      * @param ExplicitBucketHistogramSummary $left
      * @param ExplicitBucketHistogramSummary $right
      */
+    #[\Override]
     public function diff($left, $right): ExplicitBucketHistogramSummary
     {
         $count = -$left->count + $right->count;
@@ -109,13 +108,14 @@ final class ExplicitBucketHistogramAggregation implements AggregationInterface
     /**
      * @param array<ExplicitBucketHistogramSummary> $summaries
      */
+    #[\Override]
     public function toData(
         array $attributes,
         array $summaries,
         array $exemplars,
         int $startTimestamp,
         int $timestamp,
-        $temporality
+        $temporality,
     ): Data\Histogram {
         $dataPoints = [];
         foreach ($attributes as $key => $dataPointAttributes) {
@@ -143,23 +143,13 @@ final class ExplicitBucketHistogramAggregation implements AggregationInterface
         );
     }
 
-    /**
-     * @param float|int $left
-     * @param float|int $right
-     * @return float|int
-     */
-    private static function min($left, $right)
+    private static function min(float|int $left, float|int $right): float|int
     {
         /** @noinspection PhpConditionAlreadyCheckedInspection */
         return $left <= $right ? $left : ($right <= $left ? $right : NAN);
     }
 
-    /**
-     * @param float|int $left
-     * @param float|int $right
-     * @return float|int
-     */
-    private static function max($left, $right)
+    private static function max(float|int $left, float|int $right): float|int
     {
         /** @noinspection PhpConditionAlreadyCheckedInspection */
         return $left >= $right ? $left : ($right >= $left ? $right : NAN);

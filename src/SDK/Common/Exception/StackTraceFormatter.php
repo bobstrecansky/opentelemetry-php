@@ -6,7 +6,6 @@ namespace OpenTelemetry\SDK\Common\Exception;
 
 use function basename;
 use function count;
-use function get_class;
 use function sprintf;
 use function str_repeat;
 
@@ -40,7 +39,7 @@ final class StackTraceFormatter
         $s = '';
         $seen = [];
 
-        /** @var Frames|null $enclosing */
+        /** @psalm-var Frames|null $enclosing */
         $enclosing = null;
         do {
             if ($enclosing) {
@@ -68,17 +67,18 @@ final class StackTraceFormatter
 
     /**
      * @phan-suppress-next-line PhanTypeMismatchDeclaredParam
-     * @param Frames $frames
+     * @psalm-param Frames $frames
      * @phan-suppress-next-line PhanTypeMismatchDeclaredParam
-     * @param Frames|null $enclosing
+     * @psalm-param Frames|null $enclosing
+     * @psalm-suppress InvalidArrayOffset
      */
     private static function writeFrames(string &$s, array $frames, ?array $enclosing): void
     {
         $n = count($frames);
         if ($enclosing) {
             for ($m = count($enclosing);
-                 $n && $m && $frames[$n - 1] === $enclosing[$m - 1];
-                 $n--, $m--) {
+                $n && $m && $frames[$n - 1] === $enclosing[$m - 1];
+                $n--, $m--) {
             }
         }
         for ($i = 0; $i < $n; $i++) {
@@ -110,7 +110,7 @@ final class StackTraceFormatter
 
     private static function writeInlineHeader(string &$s, Throwable $e): void
     {
-        $s .= self::formatName(get_class($e));
+        $s .= self::formatName($e::class);
         if ($e->getMessage() !== '') {
             $s .= ': ';
             $s .= $e->getMessage();
@@ -124,9 +124,9 @@ final class StackTraceFormatter
     }
 
     /**
-     * @return Frames
-     *
+     * @psalm-return Frames
      * @psalm-suppress PossiblyUndefinedArrayOffset
+     * @psalm-suppress InvalidArrayOffset
      */
     private static function frames(Throwable $e): array
     {
@@ -144,7 +144,7 @@ final class StackTraceFormatter
         $frames[0]['file'] = $e->getFile();
         $frames[0]['line'] = $e->getLine();
 
-        /** @var Frames $frames */
+        /** @psalm-var Frames $frames */
         return $frames;
     }
 

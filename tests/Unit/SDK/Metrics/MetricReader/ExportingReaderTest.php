@@ -24,11 +24,10 @@ use OpenTelemetry\SDK\Metrics\PushMetricExporterInterface;
 use OpenTelemetry\SDK\Metrics\StalenessHandler\ImmediateStalenessHandler;
 use OpenTelemetry\SDK\Metrics\StalenessHandlerInterface;
 use OpenTelemetry\SDK\Resource\ResourceInfo;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 
-/**
- * @covers \OpenTelemetry\SDK\Metrics\MetricReader\ExportingReader
- */
+#[CoversClass(ExportingReader::class)]
 final class ExportingReaderTest extends TestCase
 {
     public function test_empty_reader_collects_empty_metrics(): void
@@ -50,7 +49,19 @@ final class ExportingReaderTest extends TestCase
         $this->assertEquals(new SumAggregation(), $reader->defaultAggregation(InstrumentType::UP_DOWN_COUNTER));
         $this->assertEquals(new SumAggregation(), $reader->defaultAggregation(InstrumentType::ASYNCHRONOUS_UP_DOWN_COUNTER));
         $this->assertEquals(new ExplicitBucketHistogramAggregation([0, 5, 10, 25, 50, 75, 100, 250, 500, 1000]), $reader->defaultAggregation(InstrumentType::HISTOGRAM));
+        $this->assertEquals(new LastValueAggregation(), $reader->defaultAggregation(InstrumentType::GAUGE));
         $this->assertEquals(new LastValueAggregation(), $reader->defaultAggregation(InstrumentType::ASYNCHRONOUS_GAUGE));
+    }
+
+    public function test_default_aggregation_returns_histogram_with_advisory_buckets(): void
+    {
+        $exporter = new InMemoryExporter();
+        $reader = new ExportingReader($exporter);
+
+        $this->assertEquals(
+            new ExplicitBucketHistogramAggregation([0, 0.005, 0.01, 0.025, 0.05, 0.075, 0.1, 0.25, 0.5, 0.75, 1, 2.5, 5, 7.5, 10]),
+            $reader->defaultAggregation(InstrumentType::HISTOGRAM, ['ExplicitBucketBoundaries' => [0, 0.005, 0.01, 0.025, 0.05, 0.075, 0.1, 0.25, 0.5, 0.75, 1, 2.5, 5, 7.5, 10]]),
+        );
     }
 
     public function test_default_aggregation_returns_exporter_aggregation_if_default_aggregation_provider(): void
@@ -64,7 +75,7 @@ final class ExportingReaderTest extends TestCase
 
     public function test_add_creates_metric_source_with_exporter_temporality(): void
     {
-        $exporter = new InMemoryExporter(Temporality::CUMULATIVE);
+        $exporter = new InMemoryExporter(temporality: Temporality::CUMULATIVE);
         $reader = new ExportingReader($exporter);
 
         $provider = $this->createMock(MetricSourceProviderInterface::class);
@@ -92,7 +103,7 @@ final class ExportingReaderTest extends TestCase
 
     public function test_add_does_not_create_metric_source_if_reader_closed(): void
     {
-        $exporter = new InMemoryExporter(Temporality::CUMULATIVE);
+        $exporter = new InMemoryExporter(temporality: Temporality::CUMULATIVE);
         $reader = new ExportingReader($exporter);
 
         $provider = $this->createMock(MetricSourceProviderInterface::class);
@@ -107,7 +118,7 @@ final class ExportingReaderTest extends TestCase
 
     public function test_staleness_handler_clears_source(): void
     {
-        $exporter = new InMemoryExporter(Temporality::CUMULATIVE);
+        $exporter = new InMemoryExporter(temporality: Temporality::CUMULATIVE);
         $reader = new ExportingReader($exporter);
 
         $provider = $this->createMock(MetricSourceProviderInterface::class);
@@ -123,7 +134,7 @@ final class ExportingReaderTest extends TestCase
 
     public function test_collect_collects_sources_with_current_timestamp(): void
     {
-        $exporter = new InMemoryExporter(Temporality::CUMULATIVE);
+        $exporter = new InMemoryExporter(temporality: Temporality::CUMULATIVE);
         $reader = new ExportingReader($exporter);
 
         $metric = new Metric(

@@ -4,14 +4,15 @@ declare(strict_types=1);
 
 namespace OpenTelemetry\Tests\Unit\Context;
 
+use Fiber;
 use OpenTelemetry\Context\Context;
 use OpenTelemetry\Context\ContextStorage;
+use OpenTelemetry\Context\ContextStorageNode;
 use OpenTelemetry\Context\ScopeInterface;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 
-/**
- * @covers \OpenTelemetry\Context\ContextStorageNode
- */
+#[CoversClass(ContextStorageNode::class)]
 class ScopeTest extends TestCase
 {
     public function test_scope_close_restores_context(): void
@@ -79,16 +80,21 @@ class ScopeTest extends TestCase
         $this->assertSame(0, $scope1->detach());
     }
 
+    /**
+     * @todo Don't skip when https://bugs.xdebug.org/view.php?id=2332 is fixed
+     */
     public function test_inactive_scope_detach(): void
     {
+        if (version_compare(phpversion('xdebug'), '3.4.2', '>=')) {
+            //@see https://bugs.xdebug.org/view.php?id=2332
+            $this->markTestSkipped('skipping: segfault in xdebug');
+        }
         $scope1 = Context::getCurrent()->activate();
 
-        Context::storage()->fork(1);
-        Context::storage()->switch(1);
-        $this->assertSame(ScopeInterface::INACTIVE, @$scope1->detach() & ScopeInterface::INACTIVE);
+        $fiber = new Fiber(static fn () => @$scope1->detach());
+        $fiber->start();
 
-        Context::storage()->switch(0);
-        Context::storage()->destroy(1);
+        $this->assertSame(ScopeInterface::INACTIVE, $fiber->getReturn() & ScopeInterface::INACTIVE);
     }
 
     public function test_scope_context_returns_context_of_scope(): void
@@ -123,5 +129,17 @@ class ScopeTest extends TestCase
         $scope = $storage->scope();
         $this->assertNotNull($scope);
         $this->assertArrayNotHasKey('key', $scope);
+    }
+
+    public function test_scope_is_gced_after_detach(): void
+    {
+        $storage = new ContextStorage();
+        $scope = $storage->attach($storage->current());
+
+        $ref = \WeakReference::create($scope);
+        $scope->detach();
+        unset($scope);
+
+        $this->assertNull($ref->get());
     }
 }

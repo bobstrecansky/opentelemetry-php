@@ -12,11 +12,10 @@ use OpenTelemetry\Context\ContextInterface;
 use OpenTelemetry\SDK\Common\Attribute\Attributes;
 use OpenTelemetry\SDK\Trace\Sampler\TraceIdRatioBasedSampler;
 use OpenTelemetry\SDK\Trace\SamplingResult;
+use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\TestCase;
 
-/**
- * @coversNothing
- */
+#[CoversNothing]
 class TraceIdRatioBasedSamplerTest extends TestCase
 {
     public function test_never_trace_id_ratio_based_sampler_decision(): void
@@ -52,7 +51,7 @@ class TraceIdRatioBasedSamplerTest extends TestCase
         $sampler = new TraceIdRatioBasedSampler(0.99);
         $decision = $sampler->shouldSample(
             Context::getRoot(),
-            '4bf92f3577b34da6afffffffffffffff',
+            '4bf92f3577b34da6a000000000000000',
             'test.opentelemetry.io',
             API\SpanKind::KIND_INTERNAL,
             Attributes::create([]),
@@ -66,7 +65,7 @@ class TraceIdRatioBasedSamplerTest extends TestCase
         $sampler = new TraceIdRatioBasedSampler(0.01);
         $decision = $sampler->shouldSample(
             Context::getRoot(),
-            '4bf92f3577b34da6a000000000000000',
+            '4bf92f3577b34da6afffffffffffffff',
             'test.opentelemetry.io',
             API\SpanKind::KIND_INTERNAL,
             Attributes::create([]),

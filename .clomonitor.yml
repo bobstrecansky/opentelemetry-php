@@ -1,0 +1,6 @@
+# see https://github.com/cncf/clomonitor/blob/main/docs/checks.md#exemptions
+exemptions:
+  - check: artifacthub_badge
+    reason: "Artifact Hub doesn't support php packages"
+  - check: recent_release
+    reason: "Packages are individually tagged in read-only mirror repositories under https://github.com/opentelemetry-php"

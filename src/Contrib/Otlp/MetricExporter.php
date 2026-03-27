@@ -22,34 +22,28 @@ use Throwable;
 final class MetricExporter implements PushMetricExporterInterface, AggregationTemporalitySelectorInterface
 {
     use LogsMessagesTrait;
-
-    private TransportInterface $transport;
     private ProtobufSerializer $serializer;
-    /**
-     * @var string|Temporality|null
-     */
-    private $temporality;
 
     /**
-     * @param string|Temporality|null $temporality
-     *
      * @psalm-param TransportInterface<SUPPORTED_CONTENT_TYPES> $transport
      */
-    public function __construct(TransportInterface $transport, $temporality = null)
-    {
+    public function __construct(
+        private readonly TransportInterface $transport,
+        private readonly string|Temporality|null $temporality = null,
+    ) {
         if (!class_exists('\Google\Protobuf\Api')) {
             throw new RuntimeException('No protobuf implementation found (ext-protobuf or google/protobuf)');
         }
-        $this->transport = $transport;
-        $this->serializer = ProtobufSerializer::forTransport($transport);
-        $this->temporality = $temporality;
+        $this->serializer = ProtobufSerializer::forTransport($this->transport);
     }
 
-    public function temporality(MetricMetadataInterface $metric)
+    #[\Override]
+    public function temporality(MetricMetadataInterface $metric): Temporality|string|null
     {
         return $this->temporality ?? $metric->temporality();
     }
 
+    #[\Override]
     public function export(iterable $batch): bool
     {
         return $this->transport
@@ -85,11 +79,13 @@ final class MetricExporter implements PushMetricExporterInterface, AggregationTe
             ->await();
     }
 
+    #[\Override]
     public function shutdown(): bool
     {
         return $this->transport->shutdown();
     }
 
+    #[\Override]
     public function forceFlush(): bool
     {
         return $this->transport->forceFlush();

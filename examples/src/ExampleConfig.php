@@ -1,0 +1,16 @@
+<?php
+
+declare(strict_types=1);
+
+namespace OpenTelemetry\Example;
+
+use OpenTelemetry\API\Instrumentation\AutoInstrumentation\InstrumentationConfiguration;
+
+final class ExampleConfig implements InstrumentationConfiguration
+{
+    public function __construct(
+        public readonly string $spanName = 'example',
+        public readonly bool $enabled = true,
+    ) {
+    }
+}

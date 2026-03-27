@@ -10,48 +10,51 @@ use OpenTelemetry\Context\ContextStorageInterface;
 
 final class NoopSpanBuilder implements SpanBuilderInterface
 {
-    private ContextStorageInterface $contextStorage;
+    private ContextInterface|false|null $parentContext = null;
 
-    /** @var ContextInterface|false|null */
-    private $parentContext = null;
-
-    public function __construct(ContextStorageInterface $contextStorage)
+    public function __construct(private readonly ContextStorageInterface $contextStorage)
     {
-        $this->contextStorage = $contextStorage;
     }
 
-    public function setParent($context): SpanBuilderInterface
+    #[\Override]
+    public function setParent(ContextInterface|false|null $context): SpanBuilderInterface
     {
         $this->parentContext = $context;
 
         return $this;
     }
 
+    #[\Override]
     public function addLink(SpanContextInterface $context, iterable $attributes = []): SpanBuilderInterface
     {
         return $this;
     }
 
-    public function setAttribute(string $key, $value): SpanBuilderInterface
+    #[\Override]
+    public function setAttribute(string $key, mixed $value): SpanBuilderInterface
     {
         return $this;
     }
 
+    #[\Override]
     public function setAttributes(iterable $attributes): SpanBuilderInterface
     {
         return $this;
     }
 
+    #[\Override]
     public function setStartTimestamp(int $timestampNanos): SpanBuilderInterface
     {
         return $this;
     }
 
+    #[\Override]
     public function setSpanKind(int $spanKind): SpanBuilderInterface
     {
         return $this;
     }
 
+    #[\Override]
     public function startSpan(): SpanInterface
     {
         $parentContext = Context::resolve($this->parentContext, $this->contextStorage);

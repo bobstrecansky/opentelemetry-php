@@ -6,12 +6,12 @@ namespace OpenTelemetry\Tests\Unit\SDK\Util;
 
 use function count;
 use function max;
+use OpenTelemetry\API\Common\Time\Clock;
 use OpenTelemetry\API\Trace as API;
 use OpenTelemetry\SDK\Common\Attribute\Attributes;
 use OpenTelemetry\SDK\Common\Attribute\AttributesBuilderInterface;
 use OpenTelemetry\SDK\Common\Attribute\AttributesInterface;
 use OpenTelemetry\SDK\Common\Instrumentation\InstrumentationScope;
-use OpenTelemetry\SDK\Common\Time\ClockFactory;
 use OpenTelemetry\SDK\Resource\ResourceInfo;
 use OpenTelemetry\SDK\Resource\ResourceInfoFactory;
 use OpenTelemetry\SDK\Trace as SDK;
@@ -32,7 +32,7 @@ class SpanData implements SDK\SpanDataInterface
     private array $links = [];
 
     private AttributesBuilderInterface $attributesBuilder;
-    private int $kind;
+    private int $kind = API\SpanKind::KIND_INTERNAL;
     private StatusData $status;
     private ResourceInfo $resource;
     private InstrumentationScope $instrumentationScope;
@@ -47,7 +47,6 @@ class SpanData implements SDK\SpanDataInterface
     public function __construct()
     {
         $this->attributesBuilder = Attributes::factory()->builder();
-        $this->kind = API\SpanKind::KIND_INTERNAL;
         $this->status = StatusData::unset();
         $this->resource = ResourceInfoFactory::emptyResource();
         $this->instrumentationScope = new InstrumentationScope('', null, null, Attributes::create([]));
@@ -55,6 +54,7 @@ class SpanData implements SDK\SpanDataInterface
         $this->parentContext = API\SpanContext::getInvalid();
     }
 
+    #[\Override]
     public function getName(): string
     {
         return $this->name;
@@ -69,6 +69,7 @@ class SpanData implements SDK\SpanDataInterface
     }
 
     /** @inheritDoc */
+    #[\Override]
     public function getLinks(): array
     {
         return $this->links;
@@ -90,6 +91,7 @@ class SpanData implements SDK\SpanDataInterface
     }
 
     /** @inheritDoc */
+    #[\Override]
     public function getEvents(): array
     {
         return $this->events;
@@ -103,13 +105,14 @@ class SpanData implements SDK\SpanDataInterface
         return $this;
     }
 
-    public function addEvent(string $name, AttributesInterface $attributes, int $timestamp = null): self
+    public function addEvent(string $name, AttributesInterface $attributes, ?int $timestamp = null): self
     {
-        $this->events[] = new SDK\Event($name, $timestamp ?? ClockFactory::getDefault()->now(), $attributes);
+        $this->events[] = new SDK\Event($name, $timestamp ?? Clock::getDefault()->now(), $attributes);
 
         return $this;
     }
 
+    #[\Override]
     public function getAttributes(): AttributesInterface
     {
         return $this->attributesBuilder->build();
@@ -122,6 +125,7 @@ class SpanData implements SDK\SpanDataInterface
         return $this;
     }
 
+    #[\Override]
     public function getTotalDroppedEvents(): int
     {
         return max(0, $this->totalRecordedEvents - count($this->events));
@@ -134,6 +138,7 @@ class SpanData implements SDK\SpanDataInterface
         return $this;
     }
 
+    #[\Override]
     public function getTotalDroppedLinks(): int
     {
         return max(0, $this->totalRecordedLinks - count($this->links));
@@ -146,6 +151,7 @@ class SpanData implements SDK\SpanDataInterface
         return $this;
     }
 
+    #[\Override]
     public function getKind(): int
     {
         return $this->kind;
@@ -158,6 +164,7 @@ class SpanData implements SDK\SpanDataInterface
         return $this;
     }
 
+    #[\Override]
     public function getStatus(): StatusData
     {
         return $this->status;
@@ -170,6 +177,7 @@ class SpanData implements SDK\SpanDataInterface
         return $this;
     }
 
+    #[\Override]
     public function getEndEpochNanos(): int
     {
         return $this->endEpochNanos;
@@ -182,6 +190,7 @@ class SpanData implements SDK\SpanDataInterface
         return $this;
     }
 
+    #[\Override]
     public function getStartEpochNanos(): int
     {
         return $this->startEpochNanos;
@@ -194,6 +203,7 @@ class SpanData implements SDK\SpanDataInterface
         return $this;
     }
 
+    #[\Override]
     public function hasEnded(): bool
     {
         return $this->hasEnded;
@@ -206,6 +216,7 @@ class SpanData implements SDK\SpanDataInterface
         return $this;
     }
 
+    #[\Override]
     public function getResource(): ResourceInfo
     {
         return $this->resource;
@@ -218,6 +229,7 @@ class SpanData implements SDK\SpanDataInterface
         return $this;
     }
 
+    #[\Override]
     public function getInstrumentationScope(): InstrumentationScope
     {
         return $this->instrumentationScope;
@@ -230,6 +242,7 @@ class SpanData implements SDK\SpanDataInterface
         return $this;
     }
 
+    #[\Override]
     public function getContext(): API\SpanContextInterface
     {
         return $this->context;
@@ -242,6 +255,7 @@ class SpanData implements SDK\SpanDataInterface
         return $this;
     }
 
+    #[\Override]
     public function getParentContext(): API\SpanContextInterface
     {
         return $this->parentContext;
@@ -254,16 +268,19 @@ class SpanData implements SDK\SpanDataInterface
         return $this;
     }
 
+    #[\Override]
     public function getTraceId(): string
     {
         return $this->getContext()->getTraceId();
     }
 
+    #[\Override]
     public function getSpanId(): string
     {
         return $this->getContext()->getSpanId();
     }
 
+    #[\Override]
     public function getParentSpanId(): string
     {
         return $this->getParentContext()->getSpanId();

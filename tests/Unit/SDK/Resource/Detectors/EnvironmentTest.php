@@ -4,35 +4,31 @@ declare(strict_types=1);
 
 namespace OpenTelemetry\Tests\Unit\SDK\Resource\Detectors;
 
-use AssertWell\PHPUnitGlobalState\EnvironmentVariables;
-use OpenTelemetry\SDK\Resource\Detectors;
+use OpenTelemetry\SDK\Resource\Detectors\Environment;
 use OpenTelemetry\SemConv\ResourceAttributes;
+use OpenTelemetry\Tests\TestState;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
-/**
- * @covers \OpenTelemetry\SDK\Resource\Detectors\Environment
- */
+#[CoversClass(Environment::class)]
 class EnvironmentTest extends TestCase
 {
-    use EnvironmentVariables;
+    use TestState;
 
-    private Detectors\Environment $detector;
+    private Environment $detector;
 
+    #[\Override]
     public function setUp(): void
     {
-        $this->detector = new Detectors\Environment();
-    }
-
-    public function tearDown(): void
-    {
-        $this->restoreEnvironmentVariables();
+        $this->detector = new Environment();
     }
 
     public function test_environment_default_get_resource(): void
     {
         $resource = $this->detector->getResource();
 
-        $this->assertSame(ResourceAttributes::SCHEMA_URL, $resource->getSchemaUrl());
+        $this->assertStringMatchesFormat('https://opentelemetry.io/schemas/%d.%d.%d', $resource->getSchemaUrl() ?? '');
         $this->assertEmpty($resource->getAttributes());
         $this->assertNull($resource->getAttributes()->get(ResourceAttributes::SERVICE_NAME));
     }
@@ -47,9 +43,7 @@ class EnvironmentTest extends TestCase
         $this->assertSame('value_bar', $resource->getAttributes()->get('key_bar'));
     }
 
-    /**
-     * @dataProvider encodedResourceValueProvider
-     */
+    #[DataProvider('encodedResourceValueProvider')]
     public function test_environment_get_resource_with_encoded_value(string $value, string $expected): void
     {
         $key = 'key';
@@ -68,16 +62,6 @@ class EnvironmentTest extends TestCase
         ];
     }
 
-    public function test_environment_get_resource_with_service_name(): void
-    {
-        $this->setEnvironmentVariable('OTEL_SERVICE_NAME', 'test-service');
-
-        $resource = $this->detector->getResource();
-
-        $this->assertNotEmpty($resource->getAttributes());
-        $this->assertSame('test-service', $resource->getAttributes()->get(ResourceAttributes::SERVICE_NAME));
-    }
-
     public function test_environment_get_resource_with_service_name_from_resource_attributes(): void
     {
         $this->setEnvironmentVariable('OTEL_RESOURCE_ATTRIBUTES', 'service.name=test-service');
@@ -86,16 +70,5 @@ class EnvironmentTest extends TestCase
 
         $this->assertNotEmpty($resource->getAttributes());
         $this->assertSame('test-service', $resource->getAttributes()->get(ResourceAttributes::SERVICE_NAME));
-    }
-
-    public function test_environment_get_resource_service_name_precedence_over_resource_attributes(): void
-    {
-        $this->setEnvironmentVariable('OTEL_RESOURCE_ATTRIBUTES', 'service.name=env-test-service');
-        $this->setEnvironmentVariable('OTEL_SERVICE_NAME', 'user-test-service');
-
-        $resource = $this->detector->getResource();
-
-        $this->assertNotEmpty($resource->getAttributes());
-        $this->assertSame('user-test-service', $resource->getAttributes()->get(ResourceAttributes::SERVICE_NAME));
     }
 }

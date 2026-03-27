@@ -14,13 +14,11 @@ use OpenTelemetry\SDK\Metrics\Data;
  */
 final class SumAggregation implements AggregationInterface
 {
-    private bool $monotonic;
-
-    public function __construct(bool $monotonic = false)
+    public function __construct(private readonly bool $monotonic = false)
     {
-        $this->monotonic = $monotonic;
     }
 
+    #[\Override]
     public function initialize(): SumSummary
     {
         return new SumSummary(0);
@@ -29,6 +27,7 @@ final class SumAggregation implements AggregationInterface
     /**
      * @param SumSummary $summary
      */
+    #[\Override]
     public function record($summary, $value, AttributesInterface $attributes, ContextInterface $context, int $timestamp): void
     {
         $summary->value += $value;
@@ -38,38 +37,37 @@ final class SumAggregation implements AggregationInterface
      * @param SumSummary $left
      * @param SumSummary $right
      */
+    #[\Override]
     public function merge($left, $right): SumSummary
     {
         $sum = $left->value + $right->value;
 
-        return new SumSummary(
-            $sum,
-        );
+        return new SumSummary($sum);
     }
 
     /**
      * @param SumSummary $left
      * @param SumSummary $right
      */
+    #[\Override]
     public function diff($left, $right): SumSummary
     {
-        $sum = -$left->value + $right->value;
+        $diff = -$left->value + $right->value;
 
-        return new SumSummary(
-            $sum,
-        );
+        return new SumSummary($diff);
     }
 
     /**
      * @param array<SumSummary> $summaries
      */
+    #[\Override]
     public function toData(
         array $attributes,
         array $summaries,
         array $exemplars,
         int $startTimestamp,
         int $timestamp,
-        $temporality
+        $temporality,
     ): Data\Sum {
         $dataPoints = [];
         foreach ($attributes as $key => $dataPointAttributes) {

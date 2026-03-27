@@ -30,49 +30,34 @@ use function trim;
  */
 final class PsrTransport implements TransportInterface
 {
-    private ClientInterface $client;
-    private RequestFactoryInterface $requestFactory;
-    private StreamFactoryInterface $streamFactory;
-
-    private string $endpoint;
-    private string $contentType;
-    private array $headers;
-    private array $compression;
-    private int $retryDelay;
-    private int $maxRetries;
-
     private bool $closed = false;
 
     /**
      * @psalm-param CONTENT_TYPE $contentType
      */
     public function __construct(
-        ClientInterface $client,
-        RequestFactoryInterface $requestFactory,
-        StreamFactoryInterface $streamFactory,
-        string $endpoint,
-        string $contentType,
-        array $headers,
-        array $compression,
-        int $retryDelay,
-        int $maxRetries
+        private readonly ClientInterface $client,
+        private readonly RequestFactoryInterface $requestFactory,
+        private readonly StreamFactoryInterface $streamFactory,
+        private readonly string $endpoint,
+        private readonly string $contentType,
+        private readonly array $headers,
+        private readonly array $compression,
+        private readonly int $retryDelay,
+        private readonly int $maxRetries,
     ) {
-        $this->client = $client;
-        $this->requestFactory = $requestFactory;
-        $this->streamFactory = $streamFactory;
-        $this->endpoint = $endpoint;
-        $this->contentType = $contentType;
-        $this->headers = $headers;
-        $this->compression = $compression;
-        $this->retryDelay = $retryDelay;
-        $this->maxRetries = $maxRetries;
     }
 
+    #[\Override]
     public function contentType(): string
     {
         return $this->contentType;
     }
 
+    /**
+     * @psalm-suppress ArgumentTypeCoercion
+     */
+    #[\Override]
     public function send(string $payload, ?CancellationInterface $cancellation = null): FutureInterface
     {
         if ($this->closed) {
@@ -116,7 +101,7 @@ final class PsrTransport implements TransportInterface
 
             $delay = PsrUtils::retryDelay($retries, $this->retryDelay, $response);
             $sec = (int) $delay;
-            $nsec = (int) (($delay - $sec) * 1e9);
+            $nsec = (int) (($delay - (float) $sec) * 1e9);
 
             /** @psalm-suppress ArgumentTypeCoercion */
             if (time_nanosleep($sec, $nsec) !== true) {
@@ -138,6 +123,9 @@ final class PsrTransport implements TransportInterface
         return new CompletedFuture($body);
     }
 
+    /**
+     * @return list<string>
+     */
     private static function parseContentEncoding(ResponseInterface $response): array
     {
         $encodings = [];
@@ -150,6 +138,7 @@ final class PsrTransport implements TransportInterface
         return $encodings;
     }
 
+    #[\Override]
     public function shutdown(?CancellationInterface $cancellation = null): bool
     {
         if ($this->closed) {
@@ -161,6 +150,7 @@ final class PsrTransport implements TransportInterface
         return true;
     }
 
+    #[\Override]
     public function forceFlush(?CancellationInterface $cancellation = null): bool
     {
         return !$this->closed;

@@ -49,13 +49,15 @@ final class B3SinglePropagator implements TextMapPropagatorInterface
     }
 
     /** {@inheritdoc} */
+    #[\Override]
     public function fields(): array
     {
         return self::FIELDS;
     }
 
     /** {@inheritdoc} */
-    public function inject(&$carrier, PropagationSetterInterface $setter = null, ContextInterface $context = null): void
+    #[\Override]
+    public function inject(&$carrier, ?PropagationSetterInterface $setter = null, ?ContextInterface $context = null): void
     {
         $setter ??= ArrayAccessGetterSetter::getInstance();
         $context ??= Context::getCurrent();
@@ -78,7 +80,8 @@ final class B3SinglePropagator implements TextMapPropagatorInterface
     }
 
     /** {@inheritdoc} */
-    public function extract($carrier, PropagationGetterInterface $getter = null, ContextInterface $context = null): ContextInterface
+    #[\Override]
+    public function extract($carrier, ?PropagationGetterInterface $getter = null, ?ContextInterface $context = null): ContextInterface
     {
         $getter ??= ArrayAccessGetterSetter::getInstance();
         $context ??= Context::getCurrent();
@@ -97,15 +100,15 @@ final class B3SinglePropagator implements TextMapPropagatorInterface
             return null;
         }
 
-        if (strtolower($value) === self::IS_DEBUG) {
+        if (strtolower((string) $value) === self::IS_DEBUG) {
             return (int) self::IS_SAMPLED;
         }
 
-        if (in_array(strtolower($value), self::VALID_SAMPLED)) {
+        if (in_array(strtolower((string) $value), self::VALID_SAMPLED)) {
             return (int) self::IS_SAMPLED;
         }
 
-        if (in_array(strtolower($value), self::VALID_NON_SAMPLED)) {
+        if (in_array(strtolower((string) $value), self::VALID_NON_SAMPLED)) {
             return (int) self::IS_NOT_SAMPLED;
         }
 

@@ -21,7 +21,7 @@ use Google\Protobuf\Internal\GPBUtil;
  * - Data is one of the possible types (Sum, Gauge, Histogram, Summary).
  * - DataPoint contains timestamps, attributes, and one of the possible value type
  *   fields.
- *     Metric
+ *    Metric
  *  +------------+
  *  |name        |
  *  |description |
@@ -86,7 +86,7 @@ use Google\Protobuf\Internal\GPBUtil;
 class Metric extends \Google\Protobuf\Internal\Message
 {
     /**
-     * name of the metric, including its DNS name prefix. It must be unique.
+     * name of the metric.
      *
      * Generated from protobuf field <code>string name = 1;</code>
      */
@@ -99,11 +99,23 @@ class Metric extends \Google\Protobuf\Internal\Message
     protected $description = '';
     /**
      * unit in which the metric value is reported. Follows the format
-     * described by http://unitsofmeasure.org/ucum.html.
+     * described by https://unitsofmeasure.org/ucum.html.
      *
      * Generated from protobuf field <code>string unit = 3;</code>
      */
     protected $unit = '';
+    /**
+     * Additional metadata attributes that describe the metric. [Optional].
+     * Attributes are non-identifying.
+     * Consumers SHOULD NOT need to be aware of these attributes.
+     * These attributes MAY be used to encode information allowing
+     * for lossless roundtrip translation to / from another data model.
+     * Attribute keys MUST be unique (it is not allowed to have more than one
+     * attribute with the same key).
+     *
+     * Generated from protobuf field <code>repeated .opentelemetry.proto.common.v1.KeyValue metadata = 12;</code>
+     */
+    private $metadata;
     protected $data;
 
     /**
@@ -113,17 +125,25 @@ class Metric extends \Google\Protobuf\Internal\Message
      *     Optional. Data for populating the Message object.
      *
      *     @type string $name
-     *           name of the metric, including its DNS name prefix. It must be unique.
+     *           name of the metric.
      *     @type string $description
      *           description of the metric, which can be used in documentation.
      *     @type string $unit
      *           unit in which the metric value is reported. Follows the format
-     *           described by http://unitsofmeasure.org/ucum.html.
+     *           described by https://unitsofmeasure.org/ucum.html.
      *     @type \Opentelemetry\Proto\Metrics\V1\Gauge $gauge
      *     @type \Opentelemetry\Proto\Metrics\V1\Sum $sum
      *     @type \Opentelemetry\Proto\Metrics\V1\Histogram $histogram
      *     @type \Opentelemetry\Proto\Metrics\V1\ExponentialHistogram $exponential_histogram
      *     @type \Opentelemetry\Proto\Metrics\V1\Summary $summary
+     *     @type \Opentelemetry\Proto\Common\V1\KeyValue[]|\Google\Protobuf\Internal\RepeatedField $metadata
+     *           Additional metadata attributes that describe the metric. [Optional].
+     *           Attributes are non-identifying.
+     *           Consumers SHOULD NOT need to be aware of these attributes.
+     *           These attributes MAY be used to encode information allowing
+     *           for lossless roundtrip translation to / from another data model.
+     *           Attribute keys MUST be unique (it is not allowed to have more than one
+     *           attribute with the same key).
      * }
      */
     public function __construct($data = NULL) {
@@ -132,7 +152,7 @@ class Metric extends \Google\Protobuf\Internal\Message
     }
 
     /**
-     * name of the metric, including its DNS name prefix. It must be unique.
+     * name of the metric.
      *
      * Generated from protobuf field <code>string name = 1;</code>
      * @return string
@@ -143,7 +163,7 @@ class Metric extends \Google\Protobuf\Internal\Message
     }
 
     /**
-     * name of the metric, including its DNS name prefix. It must be unique.
+     * name of the metric.
      *
      * Generated from protobuf field <code>string name = 1;</code>
      * @param string $var
@@ -185,7 +205,7 @@ class Metric extends \Google\Protobuf\Internal\Message
 
     /**
      * unit in which the metric value is reported. Follows the format
-     * described by http://unitsofmeasure.org/ucum.html.
+     * described by https://unitsofmeasure.org/ucum.html.
      *
      * Generated from protobuf field <code>string unit = 3;</code>
      * @return string
@@ -197,7 +217,7 @@ class Metric extends \Google\Protobuf\Internal\Message
 
     /**
      * unit in which the metric value is reported. Follows the format
-     * described by http://unitsofmeasure.org/ucum.html.
+     * described by https://unitsofmeasure.org/ucum.html.
      *
      * Generated from protobuf field <code>string unit = 3;</code>
      * @param string $var
@@ -342,6 +362,44 @@ class Metric extends \Google\Protobuf\Internal\Message
     {
         GPBUtil::checkMessage($var, \Opentelemetry\Proto\Metrics\V1\Summary::class);
         $this->writeOneof(11, $var);
+
+        return $this;
+    }
+
+    /**
+     * Additional metadata attributes that describe the metric. [Optional].
+     * Attributes are non-identifying.
+     * Consumers SHOULD NOT need to be aware of these attributes.
+     * These attributes MAY be used to encode information allowing
+     * for lossless roundtrip translation to / from another data model.
+     * Attribute keys MUST be unique (it is not allowed to have more than one
+     * attribute with the same key).
+     *
+     * Generated from protobuf field <code>repeated .opentelemetry.proto.common.v1.KeyValue metadata = 12;</code>
+     * @return \Google\Protobuf\Internal\RepeatedField
+     */
+    public function getMetadata()
+    {
+        return $this->metadata;
+    }
+
+    /**
+     * Additional metadata attributes that describe the metric. [Optional].
+     * Attributes are non-identifying.
+     * Consumers SHOULD NOT need to be aware of these attributes.
+     * These attributes MAY be used to encode information allowing
+     * for lossless roundtrip translation to / from another data model.
+     * Attribute keys MUST be unique (it is not allowed to have more than one
+     * attribute with the same key).
+     *
+     * Generated from protobuf field <code>repeated .opentelemetry.proto.common.v1.KeyValue metadata = 12;</code>
+     * @param \Opentelemetry\Proto\Common\V1\KeyValue[]|\Google\Protobuf\Internal\RepeatedField $var
+     * @return $this
+     */
+    public function setMetadata($var)
+    {
+        $arr = GPBUtil::checkRepeatedField($var, \Google\Protobuf\Internal\GPBType::MESSAGE, \Opentelemetry\Proto\Common\V1\KeyValue::class);
+        $this->metadata = $arr;
 
         return $this;
     }

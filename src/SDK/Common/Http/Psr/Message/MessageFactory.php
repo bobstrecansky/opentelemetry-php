@@ -13,38 +13,34 @@ use Psr\Http\Message\ServerRequestInterface;
 
 final class MessageFactory implements MessageFactoryInterface
 {
-    private RequestFactoryInterface $requestFactory;
-    private ResponseFactoryInterface $responseFactory;
-    private ServerRequestFactoryInterface $serverRequestFactory;
-
     public function __construct(
-        RequestFactoryInterface $requestFactory,
-        ResponseFactoryInterface $responseFactory,
-        ServerRequestFactoryInterface $serverRequestFactory
+        private readonly RequestFactoryInterface $requestFactory,
+        private readonly ResponseFactoryInterface $responseFactory,
+        private readonly ServerRequestFactoryInterface $serverRequestFactory,
     ) {
-        $this->requestFactory = $requestFactory;
-        $this->responseFactory = $responseFactory;
-        $this->serverRequestFactory = $serverRequestFactory;
     }
 
     public static function create(
         RequestFactoryInterface $requestFactory,
         ResponseFactoryInterface $responseFactory,
-        ServerRequestFactoryInterface $serverRequestFactory
+        ServerRequestFactoryInterface $serverRequestFactory,
     ): self {
         return new self($requestFactory, $responseFactory, $serverRequestFactory);
     }
 
+    #[\Override]
     public function createRequest(string $method, $uri): RequestInterface
     {
         return $this->requestFactory->createRequest($method, $uri);
     }
 
+    #[\Override]
     public function createResponse(int $code = 200, string $reasonPhrase = ''): ResponseInterface
     {
         return $this->responseFactory->createResponse($code, $reasonPhrase);
     }
 
+    #[\Override]
     public function createServerRequest(string $method, $uri, array $serverParams = []): ServerRequestInterface
     {
         return $this->serverRequestFactory->createServerRequest($method, $uri, $serverParams);

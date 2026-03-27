@@ -18,31 +18,33 @@ final class AttributesBuilder implements AttributesBuilderInterface
 {
     use LogsMessagesTrait;
 
-    private array $attributes;
-    private ?int $attributeCountLimit;
-    private ?int $attributeValueLengthLimit;
-    private int $droppedAttributesCount;
-    private AttributeValidatorInterface $attributeValidator;
-
-    public function __construct(
-        array $attributes,
-        ?int $attributeCountLimit,
-        ?int $attributeValueLengthLimit,
-        int $droppedAttributesCount,
-        ?AttributeValidatorInterface $attributeValidator
-    ) {
-        $this->attributes = $attributes;
-        $this->attributeCountLimit = $attributeCountLimit;
-        $this->attributeValueLengthLimit = $attributeValueLengthLimit;
-        $this->droppedAttributesCount = $droppedAttributesCount;
-        $this->attributeValidator = $attributeValidator ?? new AttributeValidator();
+    public function __construct(private array $attributes, private ?int $attributeCountLimit, private ?int $attributeValueLengthLimit, private int $droppedAttributesCount, private AttributeValidatorInterface $attributeValidator = new AttributeValidator())
+    {
     }
 
+    #[\Override]
     public function build(): AttributesInterface
     {
         return new Attributes($this->attributes, $this->droppedAttributesCount);
     }
 
+    #[\Override]
+    public function merge(AttributesInterface $old, AttributesInterface $updating): AttributesInterface
+    {
+        $new = $old->toArray();
+        $dropped = $old->getDroppedAttributesCount() + $updating->getDroppedAttributesCount();
+        foreach ($updating->toArray() as $key => $value) {
+            if (count($new) === $this->attributeCountLimit && !array_key_exists($key, $new)) {
+                $dropped++;
+            } else {
+                $new[$key] = $value;
+            }
+        }
+
+        return new Attributes($new, $dropped);
+    }
+
+    #[\Override]
     public function offsetExists($offset): bool
     {
         return array_key_exists($offset, $this->attributes);
@@ -51,8 +53,8 @@ final class AttributesBuilder implements AttributesBuilderInterface
     /**
      * @phan-suppress PhanUndeclaredClassAttribute
      */
-    #[\ReturnTypeWillChange]
-    public function offsetGet($offset)
+    #[\Override]
+    public function offsetGet($offset): mixed
     {
         return $this->attributes[$offset] ?? null;
     }
@@ -60,8 +62,8 @@ final class AttributesBuilder implements AttributesBuilderInterface
     /**
      * @phan-suppress PhanUndeclaredClassAttribute
      */
-    #[\ReturnTypeWillChange]
-    public function offsetSet($offset, $value)
+    #[\Override]
+    public function offsetSet($offset, $value): void
     {
         if ($offset === null) {
             return;
@@ -84,16 +86,13 @@ final class AttributesBuilder implements AttributesBuilderInterface
         }
 
         $this->attributes[$offset] = $this->normalizeValue($value);
-        //@todo "There SHOULD be a message printed in the SDK's log to indicate to the user that an attribute was
-        //       discarded due to such a limit. To prevent excessive logging, the message MUST be printed at most
-        //       once per <thing> (i.e., not per discarded attribute)."
     }
 
     /**
      * @phan-suppress PhanUndeclaredClassAttribute
      */
-    #[\ReturnTypeWillChange]
-    public function offsetUnset($offset)
+    #[\Override]
+    public function offsetUnset($offset): void
     {
         unset($this->attributes[$offset]);
     }

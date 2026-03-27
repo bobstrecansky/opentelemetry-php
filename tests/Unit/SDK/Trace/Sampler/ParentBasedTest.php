@@ -15,34 +15,29 @@ use OpenTelemetry\SDK\Common\Attribute\Attributes;
 use OpenTelemetry\SDK\Trace\Sampler\ParentBased;
 use OpenTelemetry\SDK\Trace\SamplerInterface;
 use OpenTelemetry\SDK\Trace\SamplingResult;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Group;
 
-/**
- * @coversDefaultClass \OpenTelemetry\SDK\Trace\Sampler\ParentBased
- */
+#[CoversClass(ParentBased::class)]
 class ParentBasedTest extends MockeryTestCase
 {
     private SamplerInterface $rootSampler;
 
+    #[\Override]
     public function setUp(): void
     {
         $this->rootSampler = $this->createMock(SamplerInterface::class);
         $this->rootSampler->method('getDescription')->willReturn('Foo');
     }
 
-    /**
-     * @covers ::getDescription
-     */
     public function test_get_description(): void
     {
         $sampler = new ParentBased($this->rootSampler);
         $this->assertSame('ParentBased+Foo', $sampler->getDescription());
     }
 
-    /**
-     * @covers ::shouldSample
-     * @covers ::__construct
-     * @group trace-compliance
-     */
+    #[Group('trace-compliance')]
     public function test_parent_based_root_span(): void
     {
         $rootSampler = self::createMockSamplerInvokedOnce(SamplingResult::RECORD_AND_SAMPLE);
@@ -60,17 +55,14 @@ class ParentBasedTest extends MockeryTestCase
         $this->assertSame(SamplingResult::RECORD_AND_SAMPLE, $decision->getDecision());
     }
 
-    /**
-     * @covers ::shouldSample
-     * @dataProvider parentContextProvider
-     */
+    #[DataProvider('parentContextProvider')]
     public function test_should_sample_parent_based(
         $parentContext,
         ?SamplerInterface $remoteParentSampled = null,
         ?SamplerInterface $remoteParentNotSampled = null,
         ?SamplerInterface $localParentSampled = null,
         ?SamplerInterface $localParentNotSampled = null,
-        ?int $expectedDecision = null
+        ?int $expectedDecision = null,
     ): void {
         $rootSampler = $this->createMockSamplerNeverInvoked();
 

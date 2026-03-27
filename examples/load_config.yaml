@@ -1,0 +1,49 @@
+file_format: '0.3'
+
+resource:
+  attributes:
+    - name: service.name
+      value: opentelemetry-demo
+  attributes_list: service.name=unused,example.foo=foo_value,example.bar=bar_value
+
+propagators:
+  composite: [ tracecontext, baggage ]
+
+response_propagator/development:
+  composite: [ servertiming, traceresponse ]
+
+exporters:
+  otlp: &otlp-exporter
+    protocol: http/protobuf
+    endpoint: http://collector:4318
+
+tracer_provider:
+  sampler:
+    parent_based:
+      root:
+        always_on:
+  processors:
+    - simple:
+        exporter:
+          console:
+    - batch:
+        exporter:
+          otlp: *otlp-exporter
+meter_provider:
+  readers:
+    - periodic:
+        exporter:
+          console:
+    - periodic:
+        exporter:
+          otlp:
+            <<: *otlp-exporter
+            temporality_preference: lowmemory
+logger_provider:
+  processors:
+    - simple:
+        exporter:
+          console:
+    - batch:
+        exporter:
+          otlp: *otlp-exporter

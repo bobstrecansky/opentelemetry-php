@@ -13,11 +13,11 @@ use OpenTelemetry\Context\ContextInterface;
 use OpenTelemetry\Extension\Propagator\B3\B3DebugFlagContextKey;
 use OpenTelemetry\Extension\Propagator\B3\B3MultiPropagator;
 use OpenTelemetry\SDK\Trace\Span;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
-/**
- * @covers \OpenTelemetry\Extension\Propagator\B3\B3MultiPropagator
- */
+#[CoversClass(B3MultiPropagator::class)]
 class B3MultiPropagatorTest extends TestCase
 {
     private const TRACE_ID_BASE16 = 'ff000000000000000000000000000041';
@@ -32,6 +32,7 @@ class B3MultiPropagatorTest extends TestCase
 
     private B3MultiPropagator $b3MultiPropagator;
 
+    #[\Override]
     protected function setUp(): void
     {
         $this->b3MultiPropagator = B3MultiPropagator::getInstance();
@@ -246,9 +247,7 @@ class B3MultiPropagatorTest extends TestCase
         );
     }
 
-    /**
-     * @dataProvider sampledValueProvider
-     */
+    #[DataProvider('sampledValueProvider')]
     public function test_extract_sampled_context($sampledValue): void
     {
         $carrier = [
@@ -273,9 +272,7 @@ class B3MultiPropagatorTest extends TestCase
         ];
     }
 
-    /**
-     * @dataProvider notSampledValueProvider
-     */
+    #[DataProvider('notSampledValueProvider')]
     public function test_extract_non_sampled_context($sampledValue): void
     {
         $carrier = [
@@ -300,9 +297,7 @@ class B3MultiPropagatorTest extends TestCase
         ];
     }
 
-    /**
-     * @dataProvider invalidDebugValueProvider
-     */
+    #[DataProvider('invalidDebugValueProvider')]
     public function test_extract_invalid_debug_with_sampled_context($debugValue): void
     {
         $carrier = [
@@ -322,9 +317,7 @@ class B3MultiPropagatorTest extends TestCase
         );
     }
 
-    /**
-     * @dataProvider invalidDebugValueProvider
-     */
+    #[DataProvider('invalidDebugValueProvider')]
     public function test_extract_invalid_debug_with_non_sampled_context($debugValue): void
     {
         $carrier = [
@@ -354,9 +347,7 @@ class B3MultiPropagatorTest extends TestCase
         ];
     }
 
-    /**
-     * @dataProvider invalidSampledValueProvider
-     */
+    #[DataProvider('invalidSampledValueProvider')]
     public function test_extract_invalid_sampled_context($sampledValue): void
     {
         $carrier = [

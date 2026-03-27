@@ -5,9 +5,12 @@ declare(strict_types=1);
 namespace OpenTelemetry\Tests\Unit\SDK\Common\Adapter\HttpDiscovery;
 
 use Generator;
-use Http\Discovery\HttpClientDiscovery;
+use Http\Discovery\Psr18ClientDiscovery;
 use Http\Discovery\Strategy\MockClientStrategy;
+use Mockery;
 use OpenTelemetry\SDK\Common\Adapter\HttpDiscovery\MessageFactoryResolver;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\RequestFactoryInterface;
 use Psr\Http\Message\ResponseFactoryInterface;
@@ -17,9 +20,7 @@ use Psr\Http\Message\UploadedFileFactoryInterface;
 use Psr\Http\Message\UriFactoryInterface;
 use ReflectionClass;
 
-/**
- * @covers \OpenTelemetry\SDK\Common\Adapter\HttpDiscovery\MessageFactoryResolver
- */
+#[CoversClass(MessageFactoryResolver::class)]
 class MessageFactoryResolverTest extends TestCase
 {
     private const DEPENDENCIES = [
@@ -31,14 +32,13 @@ class MessageFactoryResolverTest extends TestCase
         UriFactoryInterface::class,
     ];
 
+    #[\Override]
     public function setUp(): void
     {
-        HttpClientDiscovery::prependStrategy(MockClientStrategy::class);
+        Psr18ClientDiscovery::prependStrategy(MockClientStrategy::class);
     }
 
-    /**
-     * @dataProvider provideDependencies
-     */
+    #[DataProvider('provideDependencies')]
     public function test_resolve(string $method, object $dependency, array $arguments): void
     {
         $instance = MessageFactoryResolver::create(...$arguments);
@@ -49,12 +49,12 @@ class MessageFactoryResolverTest extends TestCase
         );
     }
 
-    public function provideDependencies(): Generator
+    public static function provideDependencies(): Generator
     {
         $dependencies = [];
 
         foreach (self::DEPENDENCIES as $interface) {
-            $dependencies[$this->resolveMethodName($interface)] = $this->createMock($interface);
+            $dependencies[self::resolveMethodName($interface)] = Mockery::mock($interface);
         }
 
         foreach ($dependencies as $method => $dependency) {
@@ -65,7 +65,7 @@ class MessageFactoryResolverTest extends TestCase
     /**
      *  @psalm-param class-string $interface
      */
-    private function resolveMethodName(string $interface): string
+    private static function resolveMethodName(string $interface): string
     {
         return sprintf(
             'resolve%s',

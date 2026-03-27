@@ -24,13 +24,14 @@ class AlwaysOnSampler implements SamplerInterface
      * Returns true because we always want to sample.
      * {@inheritdoc}
      */
+    #[\Override]
     public function shouldSample(
         ContextInterface $parentContext,
         string $traceId,
         string $spanName,
         int $spanKind,
         AttributesInterface $attributes,
-        array $links
+        array $links,
     ): SamplingResult {
         $parentSpan = Span::fromContext($parentContext);
         $parentSpanContext = $parentSpan->getContext();
@@ -43,6 +44,7 @@ class AlwaysOnSampler implements SamplerInterface
         );
     }
 
+    #[\Override]
     public function getDescription(): string
     {
         return 'AlwaysOnSampler';

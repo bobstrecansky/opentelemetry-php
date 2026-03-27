@@ -19,25 +19,19 @@ class SimplePsrFileLogger implements LoggerInterface
 
     private static ?array $logLevels = null;
 
-    private string $filename;
-
-    private string $loggerName ;
-
-    /**
-     * @param string $filename
-     */
-    public function __construct(string $filename, string $loggerName = self::DEFAULT_LOGGER_NAME)
-    {
-        $this->filename = $filename;
-        $this->loggerName = $loggerName;
+    public function __construct(
+        private readonly string $filename,
+        private readonly string $loggerName = self::DEFAULT_LOGGER_NAME,
+    ) {
     }
 
     /**
      * @psalm-suppress MoreSpecificImplementedParamType
      */
+    #[\Override]
     public function log($level, $message, array $context = []): void
     {
-        $level = strtolower($level);
+        $level = strtolower((string) $level);
 
         if (!in_array($level, self::getLogLevels(), true)) {
             throw new InvalidArgumentException(
@@ -49,9 +43,6 @@ class SimplePsrFileLogger implements LoggerInterface
     }
 
     /**
-     * @param string $level
-     * @param string $message
-     * @param array $context
      * @return string
      */
     private function formatLog(string $level, string $message, array $context = []): string

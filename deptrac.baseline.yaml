@@ -1,2 +1,12 @@
 deptrac:
   skip_violations:
+    /src/Extension/Propagator/B3/_register.php:
+      - OpenTelemetry\SDK\Registry
+    /src/Extension/Propagator/CloudTrace/_register.php:
+      - OpenTelemetry\SDK\Registry
+    OpenTelemetry\API\Configuration\Config\ComponentProvider:
+      - Symfony\Component\Config\Definition\Builder\ArrayNodeDefinition
+      - Symfony\Component\Config\Definition\Builder\NodeBuilder
+    OpenTelemetry\API\Configuration\Config\ComponentProviderRegistry:
+      - Symfony\Component\Config\Definition\Builder\ArrayNodeDefinition
+      - Symfony\Component\Config\Definition\Builder\NodeDefinition

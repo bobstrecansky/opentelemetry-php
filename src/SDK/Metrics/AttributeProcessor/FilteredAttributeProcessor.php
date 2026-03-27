@@ -14,13 +14,11 @@ use OpenTelemetry\SDK\Metrics\AttributeProcessorInterface;
  */
 final class FilteredAttributeProcessor implements AttributeProcessorInterface
 {
-    private array $attributeKeys;
-
-    public function __construct(array $attributeKeys)
+    public function __construct(private readonly array $attributeKeys)
     {
-        $this->attributeKeys = $attributeKeys;
     }
 
+    #[\Override]
     public function process(AttributesInterface $attributes, ContextInterface $context): AttributesInterface
     {
         $filtered = [];

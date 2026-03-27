@@ -13,64 +13,75 @@ use Throwable;
  */
 final class NonRecordingSpan extends Span
 {
-    private SpanContextInterface $context;
-
-    public function __construct(
-        SpanContextInterface $context
-    ) {
-        $this->context = $context;
+    public function __construct(private readonly SpanContextInterface $context)
+    {
     }
 
     /** @inheritDoc */
+    #[\Override]
     public function getContext(): SpanContextInterface
     {
         return $this->context;
     }
 
     /** @inheritDoc */
+    #[\Override]
     public function isRecording(): bool
     {
         return false;
     }
 
     /** @inheritDoc */
+    #[\Override]
     public function setAttribute(string $key, $value): SpanInterface
     {
         return $this;
     }
 
     /** @inheritDoc */
+    #[\Override]
     public function setAttributes(iterable $attributes): SpanInterface
     {
         return $this;
     }
 
-    /** @inheritDoc */
-    public function addEvent(string $name, iterable $attributes = [], int $timestamp = null): SpanInterface
+    #[\Override]
+    public function addLink(SpanContextInterface $context, iterable $attributes = []): SpanInterface
     {
         return $this;
     }
 
     /** @inheritDoc */
+    #[\Override]
+    public function addEvent(string $name, iterable $attributes = [], ?int $timestamp = null): SpanInterface
+    {
+        return $this;
+    }
+
+    /** @inheritDoc */
+    #[\Override]
     public function recordException(Throwable $exception, iterable $attributes = []): SpanInterface
     {
         return $this;
     }
 
     /** @inheritDoc */
+    #[\Override]
     public function updateName(string $name): SpanInterface
     {
         return $this;
     }
 
     /** @inheritDoc */
-    public function setStatus(string $code, string $description = null): SpanInterface
+    #[\Override]
+    public function setStatus(string $code, ?string $description = null): SpanInterface
     {
         return $this;
     }
 
     /** @inheritDoc */
-    public function end(int $endEpochNanos = null): void
+    #[\Override]
+    public function end(?int $endEpochNanos = null): void
     {
     }
 }

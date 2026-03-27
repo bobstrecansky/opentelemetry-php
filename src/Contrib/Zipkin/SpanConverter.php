@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace OpenTelemetry\Contrib\Zipkin;
 
 use function max;
+use OpenTelemetry\API\Common\Time\ClockInterface;
 use OpenTelemetry\API\Trace\SpanKind;
 use OpenTelemetry\API\Trace\StatusCode;
 use OpenTelemetry\Contrib\Zipkin\SpanKind as ZipkinSpanKind;
-use OpenTelemetry\SDK\Common\Time\Util as TimeUtil;
 use OpenTelemetry\SDK\Resource\ResourceInfoFactory;
 use OpenTelemetry\SDK\Trace\EventInterface;
 use OpenTelemetry\SDK\Trace\SpanConverterInterface;
@@ -25,6 +25,8 @@ class SpanConverter implements SpanConverterInterface
     const KEY_DROPPED_EVENTS_COUNT = 'otel.dropped_events_count';
     const KEY_DROPPED_LINKS_COUNT = 'otel.dropped_links_count';
 
+    public const NANOS_PER_MICROSECOND = 1_000;
+
     const REMOTE_ENDPOINT_PREFERRED_ATTRIBUTE_TO_RANK_MAP = [
         'peer.service' => 1,
         'net.peer.name' => 2,
@@ -37,11 +39,17 @@ class SpanConverter implements SpanConverterInterface
 
     const NET_PEER_IP_KEY = 'net.peer.ip';
 
-    private string $defaultServiceName;
+    private readonly string $defaultServiceName;
 
     public function __construct()
     {
         $this->defaultServiceName = ResourceInfoFactory::defaultResource()->getAttributes()->get(ResourceAttributes::SERVICE_NAME);
+    }
+
+    /** @psalm-pure */
+    public static function nanosToMicros(int $nanoseconds): int
+    {
+        return intdiv($nanoseconds, ClockInterface::NANOS_PER_MICROSECOND);
     }
 
     private function sanitiseTagValue($value): string
@@ -66,6 +74,7 @@ class SpanConverter implements SpanConverterInterface
         return (string) $value;
     }
 
+    #[\Override]
     public function convert(iterable $spans): array
     {
         $aggregate = [];
@@ -80,8 +89,8 @@ class SpanConverter implements SpanConverterInterface
     {
         $spanParent = $span->getParentContext();
 
-        $startTimestamp = TimeUtil::nanosToMicros($span->getStartEpochNanos());
-        $endTimestamp = TimeUtil::nanosToMicros($span->getEndEpochNanos());
+        $startTimestamp = self::nanosToMicros($span->getStartEpochNanos());
+        $endTimestamp = self::nanosToMicros($span->getEndEpochNanos());
 
         $serviceName =  $span->getResource()->getAttributes()->get(ResourceAttributes::SERVICE_NAME)
                         ??
@@ -140,11 +149,11 @@ class SpanConverter implements SpanConverterInterface
         }
 
         if ($span->getTotalDroppedEvents() > 0) {
-            $row['tags'][self::KEY_DROPPED_EVENTS_COUNT] = $span->getTotalDroppedEvents();
+            $row['tags'][self::KEY_DROPPED_EVENTS_COUNT] = (string) $span->getTotalDroppedEvents();
         }
 
         if ($span->getTotalDroppedLinks() > 0) {
-            $row['tags'][self::KEY_DROPPED_LINKS_COUNT] = $span->getTotalDroppedLinks();
+            $row['tags'][self::KEY_DROPPED_LINKS_COUNT] = (string) $span->getTotalDroppedLinks();
         }
 
         $droppedAttributes = $span->getAttributes()->getDroppedAttributesCount()
@@ -152,7 +161,7 @@ class SpanConverter implements SpanConverterInterface
             + $span->getResource()->getAttributes()->getDroppedAttributesCount();
 
         if ($droppedAttributes > 0) {
-            $row['tags'][self::KEY_DROPPED_ATTRIBUTES_COUNT] = $droppedAttributes;
+            $row['tags'][self::KEY_DROPPED_ATTRIBUTES_COUNT] = (string) $droppedAttributes;
         }
 
         if (($span->getKind() === SpanKind::KIND_CLIENT) || ($span->getKind() === SpanKind::KIND_PRODUCER)) {
@@ -171,20 +180,14 @@ class SpanConverter implements SpanConverterInterface
 
     private static function toSpanKind(SpanDataInterface $span): ?string
     {
-        switch ($span->getKind()) {
-          case SpanKind::KIND_SERVER:
-            return ZipkinSpanKind::SERVER;
-          case SpanKind::KIND_CLIENT:
-            return ZipkinSpanKind::CLIENT;
-          case SpanKind::KIND_PRODUCER:
-            return ZipkinSpanKind::PRODUCER;
-          case SpanKind::KIND_CONSUMER:
-            return ZipkinSpanKind::CONSUMER;
-          case SpanKind::KIND_INTERNAL:
-            return null;
-        }
-
-        return null;
+        return match ($span->getKind()) {
+            SpanKind::KIND_SERVER => ZipkinSpanKind::SERVER,
+            SpanKind::KIND_CLIENT => ZipkinSpanKind::CLIENT,
+            SpanKind::KIND_PRODUCER => ZipkinSpanKind::PRODUCER,
+            SpanKind::KIND_CONSUMER => ZipkinSpanKind::CONSUMER,
+            SpanKind::KIND_INTERNAL => null,
+            default => null,
+        };
     }
 
     private static function toAnnotation(EventInterface $event): array
@@ -195,11 +198,11 @@ class SpanConverter implements SpanConverterInterface
         $value = ($attributesAsJson !== null) ? sprintf('"%s": %s', $eventName, $attributesAsJson) : sprintf('"%s"', $eventName);
 
         $annotation = [
-            'timestamp' => TimeUtil::nanosToMicros($event->getEpochNanos()),
+            'timestamp' => self::nanosToMicros($event->getEpochNanos()),
             'value' => $value,
         ];
         if ($event->getAttributes()->getDroppedAttributesCount() > 0) {
-            $annotation[self::KEY_DROPPED_ATTRIBUTES_COUNT] = $event->getAttributes()->getDroppedAttributesCount();
+            $annotation[self::KEY_DROPPED_ATTRIBUTES_COUNT] = (string) $event->getAttributes()->getDroppedAttributesCount();
         }
 
         return $annotation;
@@ -231,17 +234,15 @@ class SpanConverter implements SpanConverterInterface
             return null;
         }
 
-        switch ($key) {
-            case SpanConverter::NET_PEER_IP_KEY:
-                return SpanConverter::getRemoteEndpointDataFromIpAddressAndPort(
-                    $value,
-                    SpanConverter::getPortNumberFromSpanAttributes($span)
-                );
-            default:
-                return [
-                    'serviceName' => $value,
-                ];
-        }
+        return match ($key) {
+            SpanConverter::NET_PEER_IP_KEY => SpanConverter::getRemoteEndpointDataFromIpAddressAndPort(
+                $value,
+                SpanConverter::getPortNumberFromSpanAttributes($span)
+            ),
+            default => [
+                'serviceName' => $value,
+            ],
+        };
     }
 
     private static function findRemoteEndpointPreferredAttribute(SpanDataInterface $span): ?array

@@ -10,11 +10,8 @@ use Psr\Http\Client\ClientInterface;
 
 final class PsrClientResolver implements ResolverInterface
 {
-    private ?ClientInterface $client;
-
-    public function __construct(?ClientInterface $client = null)
+    public function __construct(private ?ClientInterface $client = null)
     {
-        $this->client = $client;
     }
 
     public static function create(?ClientInterface $client = null): self
@@ -22,6 +19,7 @@ final class PsrClientResolver implements ResolverInterface
         return new self($client);
     }
 
+    #[\Override]
     public function resolvePsrClient(): ClientInterface
     {
         return $this->client ??= Psr18ClientDiscovery::find();

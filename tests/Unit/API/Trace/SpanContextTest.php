@@ -8,11 +8,10 @@ use OpenTelemetry\API\Trace as API;
 use OpenTelemetry\API\Trace\SpanContext;
 use OpenTelemetry\API\Trace\SpanContextValidator;
 use OpenTelemetry\API\Trace\TraceState;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 
-/**
- * @covers \OpenTelemetry\API\Trace\SpanContext
- */
+#[CoversClass(SpanContext::class)]
 class SpanContextTest extends TestCase
 {
     private const FIRST_TRACE_ID = '00000000000000000000000000000061';
@@ -24,6 +23,7 @@ class SpanContextTest extends TestCase
     private API\SpanContextInterface $second;
     private API\SpanContextInterface $remote;
 
+    #[\Override]
     protected function setUp(): void
     {
         $this->first = SpanContext::create(self::FIRST_TRACE_ID, self::FIRST_SPAN_ID, API\TraceFlags::DEFAULT, new TraceState('foo=bar'));

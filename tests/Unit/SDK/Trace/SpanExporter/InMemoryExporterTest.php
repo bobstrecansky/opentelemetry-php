@@ -6,18 +6,17 @@ namespace OpenTelemetry\Tests\Unit\SDK\Trace\SpanExporter;
 
 use ArrayObject;
 use Generator;
+use Mockery;
 use OpenTelemetry\SDK\Trace\SpanDataInterface;
 use OpenTelemetry\SDK\Trace\SpanExporter\InMemoryExporter;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
-/**
- * @covers \OpenTelemetry\SDK\Trace\SpanExporter\InMemoryExporter
- */
+#[CoversClass(InMemoryExporter::class)]
 class InMemoryExporterTest extends TestCase
 {
-    /**
-     * @dataProvider provideSpans
-     */
+    #[DataProvider('provideSpans')]
     public function test_export(iterable $spans): void
     {
         $instance = new InMemoryExporter();
@@ -50,12 +49,12 @@ class InMemoryExporterTest extends TestCase
         );
     }
 
-    public function provideSpans(): Generator
+    public static function provideSpans(): Generator
     {
         $spans = [];
 
         for ($x = 0; $x < 3; $x++) {
-            $spans[] = $this->createMock(SpanDataInterface::class);
+            $spans[] = Mockery::mock(SpanDataInterface::class);
 
             yield $x => [$spans];
         }

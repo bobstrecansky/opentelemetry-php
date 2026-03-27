@@ -8,17 +8,17 @@ use OpenTelemetry\API\Trace\SpanContextInterface;
 use OpenTelemetry\API\Trace\SpanKind;
 use OpenTelemetry\API\Trace\TraceStateInterface;
 use OpenTelemetry\SDK\Common\Attribute\AttributesInterface;
+use OpenTelemetry\SDK\Common\Instrumentation\InstrumentationScopeInterface;
 use OpenTelemetry\SDK\Resource\ResourceInfo;
 use OpenTelemetry\SDK\Trace\EventInterface;
 use OpenTelemetry\SDK\Trace\LinkInterface;
 use OpenTelemetry\SDK\Trace\SpanDataInterface;
 use OpenTelemetry\SDK\Trace\SpanExporter\FriendlySpanConverter;
 use OpenTelemetry\SDK\Trace\StatusDataInterface;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 
-/**
- * @covers \OpenTelemetry\SDK\Trace\SpanExporter\FriendlySpanConverter
- */
+#[CoversClass(FriendlySpanConverter::class)]
 class FriendlySpanConverterTest extends TestCase
 {
     private const TEST_DATA = [
@@ -31,6 +31,7 @@ class FriendlySpanConverterTest extends TestCase
             'trace_id' => '00000000000000000000000000000000',
             'span_id' => '0000000000000000',
             'trace_state' => 'foz=baz,foo=bar',
+            'trace_flags' => 0,
         ],
         'resource' => [
             'telemetry.sdk.name' => 'opentelemetry',
@@ -62,6 +63,7 @@ class FriendlySpanConverterTest extends TestCase
                 'trace_id' => '20000000000000000000000000000000',
                 'span_id' => '2000000000000000',
                 'trace_state' => 'foo=baz,foz=bar',
+                'trace_flags' => 0,
             ],
             'attributes' => [
                 'foo' => 'bar',
@@ -70,11 +72,13 @@ class FriendlySpanConverterTest extends TestCase
                 'trace_id' => '20000000000000000000000000000000',
                 'span_id' => '3000000000000000',
                 'trace_state' => 'baz=foz,bar=foo',
+                'trace_flags' => 0,
             ],
             'attributes' => [
                 'foz' => 'baz',
             ], ],
         ],
+        'schema_url' => 'https://opentelemetry.io/schemas/1.25.0',
     ];
 
     public function test_convert(): void
@@ -157,10 +161,24 @@ class FriendlySpanConverterTest extends TestCase
         }
         $mock->method('getLinks')->willReturn($links);
 
+        $mock->method('getInstrumentationScope')
+            ->willReturn(
+                $this->createInstrumentationScopeMock()
+            );
+
         return $mock;
     }
 
-    private function createSpanContextMock(string $spanId, string $traceId = '0', string $traceState = null): SpanContextInterface
+    private function createInstrumentationScopeMock(): InstrumentationScopeInterface
+    {
+        $mock = $this->createMock(InstrumentationScopeInterface::class);
+
+        $mock->method('getSchemaUrl')
+            ->willReturn($this->createSchemaUrlMock());
+
+        return $mock;
+    }
+    private function createSpanContextMock(string $spanId, string $traceId = '0', ?string $traceState = null): SpanContextInterface
     {
         $mock = $this->createMock(SpanContextInterface::class);
 
@@ -245,5 +263,10 @@ class FriendlySpanConverterTest extends TestCase
         $mock->method('getAttributes')->willReturn($attributes);
 
         return $mock;
+    }
+
+    public function createSchemaUrlMock(): string
+    {
+        return self::TEST_DATA['schema_url'];
     }
 }

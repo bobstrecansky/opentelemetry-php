@@ -10,10 +10,15 @@ use OpenTelemetry\SDK\Common\Attribute\Attributes;
 use OpenTelemetry\SDK\Resource\ResourceDetectorInterface;
 use OpenTelemetry\SDK\Resource\ResourceInfo;
 use OpenTelemetry\SDK\Resource\ResourceInfoFactory;
-use OpenTelemetry\SemConv\ResourceAttributes;
+use OpenTelemetry\SemConv\Attributes\ServiceAttributes;
+use OpenTelemetry\SemConv\Version;
 
+/**
+ * Detect service name and version of root package. Not included in `all` detectors.
+ */
 final class Composer implements ResourceDetectorInterface
 {
+    #[\Override]
     public function getResource(): ResourceInfo
     {
         if (!class_exists(InstalledVersions::class)) {
@@ -21,10 +26,10 @@ final class Composer implements ResourceDetectorInterface
         }
 
         $attributes = [
-            ResourceAttributes::SERVICE_NAME => InstalledVersions::getRootPackage()['name'],
-            ResourceAttributes::SERVICE_VERSION => InstalledVersions::getRootPackage()['pretty_version'],
+            ServiceAttributes::SERVICE_NAME => InstalledVersions::getRootPackage()['name'],
+            ServiceAttributes::SERVICE_VERSION => InstalledVersions::getRootPackage()['pretty_version'],
         ];
 
-        return ResourceInfo::create(Attributes::create($attributes), ResourceAttributes::SCHEMA_URL);
+        return ResourceInfo::create(Attributes::create($attributes), Version::VERSION_1_38_0->url());
     }
 }

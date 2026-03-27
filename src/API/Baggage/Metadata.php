@@ -13,13 +13,11 @@ final class Metadata implements MetadataInterface
         return self::$instance ??= new self('');
     }
 
-    private string $metadata;
-
-    public function __construct(string $metadata)
+    public function __construct(private readonly string $metadata)
     {
-        $this->metadata = $metadata;
     }
 
+    #[\Override]
     public function getValue(): string
     {
         return $this->metadata;

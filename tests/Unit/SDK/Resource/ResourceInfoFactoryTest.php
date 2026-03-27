@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace OpenTelemetry\Tests\Unit\SDK\Resource;
 
-use AssertWell\PHPUnitGlobalState\EnvironmentVariables;
 use Generator;
 use InvalidArgumentException;
 use OpenTelemetry\API\Behavior\Internal\Logging;
@@ -14,30 +13,28 @@ use OpenTelemetry\SDK\Registry;
 use OpenTelemetry\SDK\Resource\ResourceDetectorInterface;
 use OpenTelemetry\SDK\Resource\ResourceInfo;
 use OpenTelemetry\SDK\Resource\ResourceInfoFactory;
+use OpenTelemetry\SemConv\ResourceAttributes;
+use OpenTelemetry\Tests\TestState;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
-/**
- * @covers \OpenTelemetry\SDK\Resource\ResourceInfoFactory
- */
+#[CoversClass(ResourceInfoFactory::class)]
 class ResourceInfoFactoryTest extends TestCase
 {
-    use EnvironmentVariables;
+    use TestState;
 
     /** @var LogWriterInterface&MockObject $logWriter */
     private LogWriterInterface $logWriter;
     private const UNDEFINED = '__undefined';
 
+    #[\Override]
     public function setUp(): void
     {
         $this->logWriter = $this->createMock(LogWriterInterface::class);
         Logging::setLogWriter($this->logWriter);
-    }
-
-    public function tearDown(): void
-    {
-        $this->restoreEnvironmentVariables();
-        Logging::reset();
     }
 
     public function test_empty_resource(): void
@@ -62,9 +59,7 @@ class ResourceInfoFactoryTest extends TestCase
         $this->assertEquals('', $empty);
     }
 
-    /**
-     * @dataProvider schemaUrlsToMergeProvider
-     */
+    #[DataProvider('schemaUrlsToMergeProvider')]
     public function test_merge_schema_url(array $schemaUrlsToMerge, ?string $expectedSchemaUrl): void
     {
         $resource = ResourceInfoFactory::emptyResource();
@@ -88,27 +83,21 @@ class ResourceInfoFactoryTest extends TestCase
         yield 'Schema url is undefined and implementation-specific after merging error' => [['http://url-1', 'http://url-2', 'http://url-2'], self::UNDEFINED];
     }
 
-    /**
-     * @group trace-compliance
-     */
+    #[Group('trace-compliance')]
     public function test_resource_service_name_default(): void
     {
         $resource = ResourceInfoFactory::defaultResource();
-        $this->assertEquals('open-telemetry/opentelemetry', $resource->getAttributes()->get('service.name'));
+        $this->assertEquals('unknown_service:php', $resource->getAttributes()->get('service.name'));
     }
 
-    /**
-     * @group compliance
-     */
+    #[Group('compliance')]
     public function test_resource_with_empty_environment_variable(): void
     {
         $this->setEnvironmentVariable('OTEL_RESOURCE_ATTRIBUTES', '');
         $this->assertInstanceOf(ResourceInfo::class, ResourceInfoFactory::defaultResource());
     }
 
-    /**
-     * @group compliance
-     */
+    #[Group('compliance')]
     public function test_resource_with_invalid_environment_variable(): void
     {
         $this->setEnvironmentVariable('OTEL_RESOURCE_ATTRIBUTES', 'foo');
@@ -116,25 +105,21 @@ class ResourceInfoFactoryTest extends TestCase
         $this->assertInstanceOf(ResourceInfo::class, ResourceInfoFactory::defaultResource());
     }
 
-    /**
-     * @group compliance
-     */
+    #[Group('compliance')]
     public function test_resource_from_environment_service_name_takes_precedence_over_resource_attribute(): void
     {
-        $this->setEnvironmentVariable('OTEL_RESOURCE_ATTRIBUTES', 'service.name=bar');
-        $this->setEnvironmentVariable('OTEL_SERVICE_NAME', 'foo');
+        $this->setEnvironmentVariable('OTEL_RESOURCE_ATTRIBUTES', 'service.name=from-resource-attributes');
+        $this->setEnvironmentVariable('OTEL_SERVICE_NAME', 'from-service-name');
         $resource = ResourceInfoFactory::defaultResource();
-        $this->assertEquals('foo', $resource->getAttributes()->get('service.name'));
+        $this->assertEquals('from-service-name', $resource->getAttributes()->get('service.name'));
     }
 
-    /**
-     * @group compliance
-     */
+    #[Group('compliance')]
     public function test_resource_from_environment_resource_attribute_takes_precedence_over_default(): void
     {
-        $this->setEnvironmentVariable('OTEL_RESOURCE_ATTRIBUTES', 'service.name=foo');
+        $this->setEnvironmentVariable('OTEL_RESOURCE_ATTRIBUTES', 'service.name=from-resource-attributes');
         $resource = ResourceInfoFactory::defaultResource();
-        $this->assertEquals('foo', $resource->getAttributes()->get('service.name'));
+        $this->assertEquals('from-resource-attributes', $resource->getAttributes()->get('service.name'));
     }
 
     public function test_resource_from_registry(): void
@@ -171,7 +156,7 @@ class ResourceInfoFactoryTest extends TestCase
 
     public function test_default_with_all_sdk_detectors(): void
     {
-        $this->setEnvironmentVariable('OTEL_PHP_DETECTORS', 'env,host,os,process,process_runtime,sdk,sdk_provided,composer');
+        $this->setEnvironmentVariable('OTEL_PHP_DETECTORS', 'service,env,host,os,process,process_runtime,sdk,sdk_provided,composer');
         $resource = ResourceInfoFactory::defaultResource();
         $keys = array_keys($resource->getAttributes()->toArray());
         foreach (['service.name', 'telemetry.sdk.name', 'process.runtime.name', 'process.pid', 'host.arch'] as $key) {
@@ -179,12 +164,17 @@ class ResourceInfoFactoryTest extends TestCase
         }
     }
 
-    public function test_default_with_none_detectors(): void
+    /**
+     * SDK detectors are always included in the default resource.
+     */
+    public function test_default_with_none_detectors_uses_mandatory(): void
     {
         $this->setEnvironmentVariable('OTEL_PHP_DETECTORS', 'none');
         $resource = ResourceInfoFactory::defaultResource();
         $keys = array_keys($resource->getAttributes()->toArray());
-        $this->assertEmpty($keys);
+        foreach (['service.name', 'telemetry.sdk.name', 'telemetry.sdk.version'] as $key) {
+            $this->assertContains($key, $keys);
+        }
     }
 
     public function test_logs_warning_for_unknown_detector(): void
@@ -193,5 +183,26 @@ class ResourceInfoFactoryTest extends TestCase
         $this->setEnvironmentVariable('OTEL_PHP_DETECTORS', 'does-not-exist');
 
         ResourceInfoFactory::defaultResource();
+    }
+
+    public function test_environment_get_resource_service_name_precedence_over_resource_attributes(): void
+    {
+        $this->setEnvironmentVariable('OTEL_RESOURCE_ATTRIBUTES', 'service.name=from-env');
+        $this->setEnvironmentVariable('OTEL_SERVICE_NAME', 'from-service-name');
+        $this->setEnvironmentVariable('OTEL_PHP_DETECTORS', 'env');
+
+        $resource = ResourceInfoFactory::defaultResource();
+
+        $this->assertNotEmpty($resource->getAttributes());
+        $this->assertSame('from-service-name', $resource->getAttributes()->get(ResourceAttributes::SERVICE_NAME));
+    }
+
+    public function test_service_instance_detector(): void
+    {
+        $this->setEnvironmentVariable('OTEL_PHP_DETECTORS', 'service_instance');
+
+        $resource = ResourceInfoFactory::defaultResource();
+
+        $this->assertNotEmpty($resource->getAttributes()->get(ResourceAttributes::SERVICE_INSTANCE_ID));
     }
 }

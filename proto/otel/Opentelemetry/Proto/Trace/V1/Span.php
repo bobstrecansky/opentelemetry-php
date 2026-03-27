@@ -52,6 +52,27 @@ class Span extends \Google\Protobuf\Internal\Message
      */
     protected $parent_span_id = '';
     /**
+     * Flags, a bit field.
+     * Bits 0-7 (8 least significant bits) are the trace flags as defined in W3C Trace
+     * Context specification. To read the 8-bit W3C trace flag, use
+     * `flags & SPAN_FLAGS_TRACE_FLAGS_MASK`.
+     * See https://www.w3.org/TR/trace-context-2/#trace-flags for the flag definitions.
+     * Bits 8 and 9 represent the 3 states of whether a span's parent
+     * is remote. The states are (unknown, is not remote, is remote).
+     * To read whether the value is known, use `(flags & SPAN_FLAGS_CONTEXT_HAS_IS_REMOTE_MASK) != 0`.
+     * To read whether the span is remote, use `(flags & SPAN_FLAGS_CONTEXT_IS_REMOTE_MASK) != 0`.
+     * When creating span messages, if the message is logically forwarded from another source
+     * with an equivalent flags fields (i.e., usually another OTLP span message), the field SHOULD
+     * be copied as-is. If creating from a source that does not have an equivalent flags field
+     * (such as a runtime representation of an OpenTelemetry span), the high 22 bits MUST
+     * be set to zero.
+     * Readers MUST NOT assume that bits 10-31 (22 most significant bits) will be zero.
+     * [Optional].
+     *
+     * Generated from protobuf field <code>fixed32 flags = 16;</code>
+     */
+    protected $flags = 0;
+    /**
      * A description of the span's operation.
      * For example, the name can be a qualified method name or a file name
      * and a line number where the operation is called. A best practice is to use
@@ -99,10 +120,17 @@ class Span extends \Google\Protobuf\Internal\Message
      *     "/http/server_latency": 300
      *     "example.com/myattribute": true
      *     "example.com/score": 10.239
-     * The OpenTelemetry API specification further restricts the allowed value types:
-     * https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/common/README.md#attribute
      * Attribute keys MUST be unique (it is not allowed to have more than one
      * attribute with the same key).
+     * The attribute values SHOULD NOT contain empty values.
+     * The attribute values SHOULD NOT contain bytes values.
+     * The attribute values SHOULD NOT contain array values different than array of string values, bool values, int values,
+     * double values.
+     * The attribute values SHOULD NOT contain kvlist values.
+     * The behavior of software that receives attributes containing such values can be unpredictable.
+     * These restrictions can change in a minor release.
+     * The restrictions take origin from the OpenTelemetry specification:
+     * https://github.com/open-telemetry/opentelemetry-specification/blob/v1.47.0/specification/common/README.md#attribute.
      *
      * Generated from protobuf field <code>repeated .opentelemetry.proto.common.v1.KeyValue attributes = 9;</code>
      */
@@ -175,6 +203,23 @@ class Span extends \Google\Protobuf\Internal\Message
      *     @type string $parent_span_id
      *           The `span_id` of this span's parent span. If this is a root span, then this
      *           field must be empty. The ID is an 8-byte array.
+     *     @type int $flags
+     *           Flags, a bit field.
+     *           Bits 0-7 (8 least significant bits) are the trace flags as defined in W3C Trace
+     *           Context specification. To read the 8-bit W3C trace flag, use
+     *           `flags & SPAN_FLAGS_TRACE_FLAGS_MASK`.
+     *           See https://www.w3.org/TR/trace-context-2/#trace-flags for the flag definitions.
+     *           Bits 8 and 9 represent the 3 states of whether a span's parent
+     *           is remote. The states are (unknown, is not remote, is remote).
+     *           To read whether the value is known, use `(flags & SPAN_FLAGS_CONTEXT_HAS_IS_REMOTE_MASK) != 0`.
+     *           To read whether the span is remote, use `(flags & SPAN_FLAGS_CONTEXT_IS_REMOTE_MASK) != 0`.
+     *           When creating span messages, if the message is logically forwarded from another source
+     *           with an equivalent flags fields (i.e., usually another OTLP span message), the field SHOULD
+     *           be copied as-is. If creating from a source that does not have an equivalent flags field
+     *           (such as a runtime representation of an OpenTelemetry span), the high 22 bits MUST
+     *           be set to zero.
+     *           Readers MUST NOT assume that bits 10-31 (22 most significant bits) will be zero.
+     *           [Optional].
      *     @type string $name
      *           A description of the span's operation.
      *           For example, the name can be a qualified method name or a file name
@@ -207,10 +252,17 @@ class Span extends \Google\Protobuf\Internal\Message
      *               "/http/server_latency": 300
      *               "example.com/myattribute": true
      *               "example.com/score": 10.239
-     *           The OpenTelemetry API specification further restricts the allowed value types:
-     *           https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/common/README.md#attribute
      *           Attribute keys MUST be unique (it is not allowed to have more than one
      *           attribute with the same key).
+     *           The attribute values SHOULD NOT contain empty values.
+     *           The attribute values SHOULD NOT contain bytes values.
+     *           The attribute values SHOULD NOT contain array values different than array of string values, bool values, int values,
+     *           double values.
+     *           The attribute values SHOULD NOT contain kvlist values.
+     *           The behavior of software that receives attributes containing such values can be unpredictable.
+     *           These restrictions can change in a minor release.
+     *           The restrictions take origin from the OpenTelemetry specification:
+     *           https://github.com/open-telemetry/opentelemetry-specification/blob/v1.47.0/specification/common/README.md#attribute.
      *     @type int $dropped_attributes_count
      *           dropped_attributes_count is the number of attributes that were discarded. Attributes
      *           can be discarded because their keys are too long or because there are too many
@@ -363,6 +415,62 @@ class Span extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Flags, a bit field.
+     * Bits 0-7 (8 least significant bits) are the trace flags as defined in W3C Trace
+     * Context specification. To read the 8-bit W3C trace flag, use
+     * `flags & SPAN_FLAGS_TRACE_FLAGS_MASK`.
+     * See https://www.w3.org/TR/trace-context-2/#trace-flags for the flag definitions.
+     * Bits 8 and 9 represent the 3 states of whether a span's parent
+     * is remote. The states are (unknown, is not remote, is remote).
+     * To read whether the value is known, use `(flags & SPAN_FLAGS_CONTEXT_HAS_IS_REMOTE_MASK) != 0`.
+     * To read whether the span is remote, use `(flags & SPAN_FLAGS_CONTEXT_IS_REMOTE_MASK) != 0`.
+     * When creating span messages, if the message is logically forwarded from another source
+     * with an equivalent flags fields (i.e., usually another OTLP span message), the field SHOULD
+     * be copied as-is. If creating from a source that does not have an equivalent flags field
+     * (such as a runtime representation of an OpenTelemetry span), the high 22 bits MUST
+     * be set to zero.
+     * Readers MUST NOT assume that bits 10-31 (22 most significant bits) will be zero.
+     * [Optional].
+     *
+     * Generated from protobuf field <code>fixed32 flags = 16;</code>
+     * @return int
+     */
+    public function getFlags()
+    {
+        return $this->flags;
+    }
+
+    /**
+     * Flags, a bit field.
+     * Bits 0-7 (8 least significant bits) are the trace flags as defined in W3C Trace
+     * Context specification. To read the 8-bit W3C trace flag, use
+     * `flags & SPAN_FLAGS_TRACE_FLAGS_MASK`.
+     * See https://www.w3.org/TR/trace-context-2/#trace-flags for the flag definitions.
+     * Bits 8 and 9 represent the 3 states of whether a span's parent
+     * is remote. The states are (unknown, is not remote, is remote).
+     * To read whether the value is known, use `(flags & SPAN_FLAGS_CONTEXT_HAS_IS_REMOTE_MASK) != 0`.
+     * To read whether the span is remote, use `(flags & SPAN_FLAGS_CONTEXT_IS_REMOTE_MASK) != 0`.
+     * When creating span messages, if the message is logically forwarded from another source
+     * with an equivalent flags fields (i.e., usually another OTLP span message), the field SHOULD
+     * be copied as-is. If creating from a source that does not have an equivalent flags field
+     * (such as a runtime representation of an OpenTelemetry span), the high 22 bits MUST
+     * be set to zero.
+     * Readers MUST NOT assume that bits 10-31 (22 most significant bits) will be zero.
+     * [Optional].
+     *
+     * Generated from protobuf field <code>fixed32 flags = 16;</code>
+     * @param int $var
+     * @return $this
+     */
+    public function setFlags($var)
+    {
+        GPBUtil::checkUint32($var);
+        $this->flags = $var;
+
+        return $this;
+    }
+
+    /**
      * A description of the span's operation.
      * For example, the name can be a qualified method name or a file name
      * and a line number where the operation is called. A best practice is to use
@@ -507,10 +615,17 @@ class Span extends \Google\Protobuf\Internal\Message
      *     "/http/server_latency": 300
      *     "example.com/myattribute": true
      *     "example.com/score": 10.239
-     * The OpenTelemetry API specification further restricts the allowed value types:
-     * https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/common/README.md#attribute
      * Attribute keys MUST be unique (it is not allowed to have more than one
      * attribute with the same key).
+     * The attribute values SHOULD NOT contain empty values.
+     * The attribute values SHOULD NOT contain bytes values.
+     * The attribute values SHOULD NOT contain array values different than array of string values, bool values, int values,
+     * double values.
+     * The attribute values SHOULD NOT contain kvlist values.
+     * The behavior of software that receives attributes containing such values can be unpredictable.
+     * These restrictions can change in a minor release.
+     * The restrictions take origin from the OpenTelemetry specification:
+     * https://github.com/open-telemetry/opentelemetry-specification/blob/v1.47.0/specification/common/README.md#attribute.
      *
      * Generated from protobuf field <code>repeated .opentelemetry.proto.common.v1.KeyValue attributes = 9;</code>
      * @return \Google\Protobuf\Internal\RepeatedField
@@ -527,10 +642,17 @@ class Span extends \Google\Protobuf\Internal\Message
      *     "/http/server_latency": 300
      *     "example.com/myattribute": true
      *     "example.com/score": 10.239
-     * The OpenTelemetry API specification further restricts the allowed value types:
-     * https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/common/README.md#attribute
      * Attribute keys MUST be unique (it is not allowed to have more than one
      * attribute with the same key).
+     * The attribute values SHOULD NOT contain empty values.
+     * The attribute values SHOULD NOT contain bytes values.
+     * The attribute values SHOULD NOT contain array values different than array of string values, bool values, int values,
+     * double values.
+     * The attribute values SHOULD NOT contain kvlist values.
+     * The behavior of software that receives attributes containing such values can be unpredictable.
+     * These restrictions can change in a minor release.
+     * The restrictions take origin from the OpenTelemetry specification:
+     * https://github.com/open-telemetry/opentelemetry-specification/blob/v1.47.0/specification/common/README.md#attribute.
      *
      * Generated from protobuf field <code>repeated .opentelemetry.proto.common.v1.KeyValue attributes = 9;</code>
      * @param \Opentelemetry\Proto\Common\V1\KeyValue[]|\Google\Protobuf\Internal\RepeatedField $var

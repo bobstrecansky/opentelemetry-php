@@ -17,39 +17,40 @@ use OpenTelemetry\SDK\Metrics\MetricRegistry\MetricCollectorInterface;
 use OpenTelemetry\SDK\Metrics\MetricSourceInterface;
 use OpenTelemetry\SDK\Metrics\MetricSourceProviderInterface;
 use OpenTelemetry\SDK\Metrics\MetricSourceRegistryInterface;
+use OpenTelemetry\SDK\Metrics\MetricSourceRegistryUnregisterInterface;
 use OpenTelemetry\SDK\Metrics\PushMetricExporterInterface;
 use OpenTelemetry\SDK\Metrics\StalenessHandlerInterface;
 use function spl_object_id;
 
-final class ExportingReader implements MetricReaderInterface, MetricSourceRegistryInterface, DefaultAggregationProviderInterface
+final class ExportingReader implements MetricReaderInterface, MetricSourceRegistryInterface, MetricSourceRegistryUnregisterInterface, DefaultAggregationProviderInterface
 {
     use DefaultAggregationProviderTrait { defaultAggregation as private _defaultAggregation; }
-
-    private MetricExporterInterface $exporter;
     /** @var array<int, MetricSourceInterface> */
     private array $sources = [];
 
     /** @var array<int, MetricCollectorInterface> */
     private array $registries = [];
-    /** @var array<int, array<int, int>> */
+    /** @var array<int, array<int, list<int>>> */
     private array $streamIds = [];
 
     private bool $closed = false;
 
-    public function __construct(MetricExporterInterface $exporter)
+    public function __construct(private readonly MetricExporterInterface $exporter)
     {
-        $this->exporter = $exporter;
     }
 
-    public function defaultAggregation($instrumentType): ?AggregationInterface
+    #[\Override]
+    public function defaultAggregation($instrumentType, array $advisory = []): ?AggregationInterface
     {
         if ($this->exporter instanceof DefaultAggregationProviderInterface) {
-            return $this->exporter->defaultAggregation($instrumentType);
+            /** @phan-suppress-next-line PhanParamTooMany @phpstan-ignore-next-line */
+            return $this->exporter->defaultAggregation($instrumentType, $advisory);
         }
 
-        return $this->_defaultAggregation($instrumentType);
+        return $this->_defaultAggregation($instrumentType, $advisory);
     }
 
+    #[\Override]
     public function add(MetricSourceProviderInterface $provider, MetricMetadataInterface $metadata, StalenessHandlerInterface $stalenessHandler): void
     {
         if ($this->closed) {
@@ -66,11 +67,11 @@ final class ExportingReader implements MetricReaderInterface, MetricSourceRegist
         $sourceId = spl_object_id($source);
 
         $this->sources[$sourceId] = $source;
-        $stalenessHandler->onStale(function () use ($sourceId): void {
-            unset($this->sources[$sourceId]);
-        });
-
         if (!$provider instanceof StreamMetricSourceProvider) {
+            $stalenessHandler->onStale(function () use ($sourceId): void {
+                unset($this->sources[$sourceId]);
+            });
+
             return;
         }
 
@@ -79,20 +80,23 @@ final class ExportingReader implements MetricReaderInterface, MetricSourceRegist
         $registryId = spl_object_id($registry);
 
         $this->registries[$registryId] = $registry;
-        $this->streamIds[$registryId][$streamId] ??= 0;
-        $this->streamIds[$registryId][$streamId]++;
+        $this->streamIds[$registryId][$streamId][] = $sourceId;
+    }
 
-        $stalenessHandler->onStale(function () use ($streamId, $registryId): void {
-            if (!--$this->streamIds[$registryId][$streamId]) {
-                unset($this->streamIds[$registryId][$streamId]);
-                if (!$this->streamIds[$registryId]) {
-                    unset(
-                        $this->registries[$registryId],
-                        $this->streamIds[$registryId],
-                    );
-                }
-            }
-        });
+    #[\Override]
+    public function unregisterStream(MetricCollectorInterface $collector, int $streamId): void
+    {
+        $registryId = spl_object_id($collector);
+        foreach ($this->streamIds[$registryId][$streamId] ?? [] as $sourceId) {
+            unset($this->sources[$sourceId]);
+        }
+        unset($this->streamIds[$registryId][$streamId]);
+        if (!$this->streamIds[$registryId]) {
+            unset(
+                $this->registries[$registryId],
+                $this->streamIds[$registryId],
+            );
+        }
     }
 
     private function doCollect(): bool
@@ -114,6 +118,7 @@ final class ExportingReader implements MetricReaderInterface, MetricSourceRegist
         return $this->exporter->export($metrics);
     }
 
+    #[\Override]
     public function collect(): bool
     {
         if ($this->closed) {
@@ -123,6 +128,7 @@ final class ExportingReader implements MetricReaderInterface, MetricSourceRegist
         return $this->doCollect();
     }
 
+    #[\Override]
     public function shutdown(): bool
     {
         if ($this->closed) {
@@ -139,6 +145,7 @@ final class ExportingReader implements MetricReaderInterface, MetricSourceRegist
         return $collect && $shutdown;
     }
 
+    #[\Override]
     public function forceFlush(): bool
     {
         if ($this->closed) {

@@ -12,11 +12,10 @@ use OpenTelemetry\SDK\Metrics\View\CriteriaViewRegistry;
 use OpenTelemetry\SDK\Metrics\View\SelectionCriteria\InstrumentNameCriteria;
 use OpenTelemetry\SDK\Metrics\View\ViewTemplate;
 use OpenTelemetry\SDK\Metrics\ViewProjection;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 
-/**
- * @covers \OpenTelemetry\SDK\Metrics\View\CriteriaViewRegistry
- */
+#[CoversClass(CriteriaViewRegistry::class)]
 final class CriteriaViewRegistryTest extends TestCase
 {
     public function test_empty_registry_returns_null(): void
@@ -28,6 +27,9 @@ final class CriteriaViewRegistryTest extends TestCase
         ));
     }
 
+    /**
+     * @psalm-suppress InvalidOperand
+     */
     public function test_registry_returns_matching_entry(): void
     {
         $views = new CriteriaViewRegistry();

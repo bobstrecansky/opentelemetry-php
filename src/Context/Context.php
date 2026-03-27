@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace OpenTelemetry\Context;
 
 use function assert;
+use const FILTER_VALIDATE_BOOLEAN;
+use function filter_var;
 use function spl_object_id;
 
 /**
@@ -12,8 +14,9 @@ use function spl_object_id;
  */
 final class Context implements ContextInterface
 {
-    /** @var ContextStorageInterface&ExecutionContextAwareInterface */
-    private static ContextStorageInterface $storage;
+    private const OTEL_PHP_DEBUG_SCOPES_DISABLED = 'OTEL_PHP_DEBUG_SCOPES_DISABLED';
+
+    private static ContextStorageInterface&ExecutionContextAwareInterface $storage;
 
     // Optimization for spans to avoid copying the context array.
     private static ContextKeyInterface $spanContextKey;
@@ -28,34 +31,27 @@ final class Context implements ContextInterface
         self::$spanContextKey = ContextKeys::span();
     }
 
+    #[\Override]
     public static function createKey(string $key): ContextKeyInterface
     {
         return new ContextKey($key);
     }
 
-    /**
-     * @param ContextStorageInterface&ExecutionContextAwareInterface $storage
-     */
-    public static function setStorage(ContextStorageInterface $storage): void
+    public static function setStorage(ContextStorageInterface&ExecutionContextAwareInterface $storage): void
     {
         self::$storage = $storage;
     }
 
-    /**
-     * @return ContextStorageInterface&ExecutionContextAwareInterface
-     */
-    public static function storage(): ContextStorageInterface
+    public static function storage(): ContextStorageInterface&ExecutionContextAwareInterface
     {
         /** @psalm-suppress RedundantPropertyInitializationCheck */
-        return self::$storage ??= new ContextStorage();
+        return self::$storage ??= new FiberBoundContextStorageExecutionAwareBC();
     }
 
     /**
-     * @param ContextInterface|false|null $context
-     *
      * @internal OpenTelemetry
      */
-    public static function resolve($context, ?ContextStorageInterface $contextStorage = null): ContextInterface
+    public static function resolve(ContextInterface|false|null $context, ?ContextStorageInterface $contextStorage = null): ContextInterface
     {
         return $context
             ?? ($contextStorage ?? self::storage())->current()
@@ -72,25 +68,37 @@ final class Context implements ContextInterface
         return $empty ??= new self();
     }
 
+    #[\Override]
     public static function getCurrent(): ContextInterface
     {
         return self::storage()->current();
     }
 
+    #[\Override]
     public function activate(): ScopeInterface
     {
         $scope = self::storage()->attach($this);
-        /** @psalm-suppress RedundantCondition */
-        assert((bool) $scope = new DebugScope($scope));
+        /** @psalm-suppress RedundantCondition @phpstan-ignore-next-line */
+        assert(self::debugScopesDisabled() || $scope = new DebugScope($scope));
 
         return $scope;
     }
 
+    private static function debugScopesDisabled(): bool
+    {
+        return filter_var(
+            $_SERVER[self::OTEL_PHP_DEBUG_SCOPES_DISABLED] ?? \getenv(self::OTEL_PHP_DEBUG_SCOPES_DISABLED) ?: \ini_get(self::OTEL_PHP_DEBUG_SCOPES_DISABLED),
+            FILTER_VALIDATE_BOOLEAN
+        );
+    }
+
+    #[\Override]
     public function withContextValue(ImplicitContextKeyedInterface $value): ContextInterface
     {
         return $value->storeInContext($this);
     }
 
+    #[\Override]
     public function with(ContextKeyInterface $key, $value): self
     {
         if ($this->get($key) === $value) {
@@ -119,6 +127,7 @@ final class Context implements ContextInterface
         return $self;
     }
 
+    #[\Override]
     public function get(ContextKeyInterface $key)
     {
         if ($key === self::$spanContextKey) {

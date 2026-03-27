@@ -4,24 +4,27 @@ declare(strict_types=1);
 
 namespace OpenTelemetry\Tests\Unit\SDK\Metrics;
 
+use OpenTelemetry\API\Common\Time\Clock;
 use OpenTelemetry\API\Metrics\Noop\NoopMeter;
 use OpenTelemetry\SDK\Common\Attribute\Attributes;
 use OpenTelemetry\SDK\Common\Instrumentation\InstrumentationScope;
 use OpenTelemetry\SDK\Common\Instrumentation\InstrumentationScopeFactory;
 use OpenTelemetry\SDK\Common\Instrumentation\InstrumentationScopeFactoryInterface;
-use OpenTelemetry\SDK\Common\Time\ClockFactory;
+use OpenTelemetry\SDK\Common\InstrumentationScope\Configurator;
 use OpenTelemetry\SDK\Metrics\DefaultAggregationProviderInterface;
+use OpenTelemetry\SDK\Metrics\MeterConfig;
 use OpenTelemetry\SDK\Metrics\MeterProvider;
+use OpenTelemetry\SDK\Metrics\MetricExporter\InMemoryExporter;
+use OpenTelemetry\SDK\Metrics\MetricReader\ExportingReader;
 use OpenTelemetry\SDK\Metrics\MetricReaderInterface;
 use OpenTelemetry\SDK\Metrics\MetricSourceRegistryInterface;
 use OpenTelemetry\SDK\Metrics\StalenessHandler\ImmediateStalenessHandlerFactory;
 use OpenTelemetry\SDK\Metrics\View\CriteriaViewRegistry;
 use OpenTelemetry\SDK\Resource\ResourceInfoFactory;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 
-/**
- * @covers \OpenTelemetry\SDK\Metrics\MeterProvider
- */
+#[CoversClass(MeterProvider::class)]
 final class MeterProviderTest extends TestCase
 {
     public function test_get_meter_creates_instrumentation_scope_with_given_arguments(): void
@@ -39,7 +42,7 @@ final class MeterProviderTest extends TestCase
         $meterProvider = new MeterProvider(
             null,
             ResourceInfoFactory::emptyResource(),
-            ClockFactory::getDefault(),
+            Clock::getDefault(),
             Attributes::factory(),
             $instrumentationScopeFactory,
             [],
@@ -55,7 +58,7 @@ final class MeterProviderTest extends TestCase
         $meterProvider = new MeterProvider(
             null,
             ResourceInfoFactory::emptyResource(),
-            ClockFactory::getDefault(),
+            Clock::getDefault(),
             Attributes::factory(),
             new InstrumentationScopeFactory(Attributes::factory()),
             [],
@@ -76,7 +79,7 @@ final class MeterProviderTest extends TestCase
         $meterProvider = new MeterProvider(
             null,
             ResourceInfoFactory::emptyResource(),
-            ClockFactory::getDefault(),
+            Clock::getDefault(),
             Attributes::factory(),
             new InstrumentationScopeFactory(Attributes::factory()),
             [$metricReader],
@@ -95,7 +98,7 @@ final class MeterProviderTest extends TestCase
         $meterProvider = new MeterProvider(
             null,
             ResourceInfoFactory::emptyResource(),
-            ClockFactory::getDefault(),
+            Clock::getDefault(),
             Attributes::factory(),
             new InstrumentationScopeFactory(Attributes::factory()),
             [$metricReader],
@@ -104,6 +107,19 @@ final class MeterProviderTest extends TestCase
             new ImmediateStalenessHandlerFactory(),
         );
         $this->assertTrue($meterProvider->forceFlush());
+    }
+
+    public function test_disable(): void
+    {
+        $meterProvider = MeterProvider::builder()->addReader(new ExportingReader(new InMemoryExporter()))->build();
+        $this->assertInstanceOf(MeterProvider::class, $meterProvider);
+        $meter = $meterProvider->getMeter('one');
+        $this->assertTrue($meter->createCounter('test')->isEnabled());
+        $counter = $meter->createCounter('A');
+        $this->assertTrue($counter->isEnabled());
+        $meterProvider->updateConfigurator(Configurator::meter()->with(static fn (MeterConfig $config) => $config->setDisabled(true), name: 'one'));
+        $this->assertFalse($meter->createCounter('test')->isEnabled());
+        $this->assertFalse($counter->isEnabled());
     }
 }
 

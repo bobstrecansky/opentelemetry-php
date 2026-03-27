@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OpenTelemetry\Tests\Unit\API\Trace;
 
+use OpenTelemetry\API\Common\Time\TestClock;
 use OpenTelemetry\API\Trace\NonRecordingSpan;
 use OpenTelemetry\API\Trace\NoopSpanBuilder;
 use OpenTelemetry\API\Trace\SpanContextInterface;
@@ -11,12 +12,10 @@ use OpenTelemetry\API\Trace\SpanInterface;
 use OpenTelemetry\Context\Context;
 use OpenTelemetry\Context\ContextKeys;
 use OpenTelemetry\Context\ContextStorageInterface;
-use OpenTelemetry\Tests\Unit\SDK\Util\TestClock;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 
-/**
- * @covers \OpenTelemetry\API\Trace\NoopSpanBuilder
- */
+#[CoversClass(NoopSpanBuilder::class)]
 class NoopSpanBuilderTest extends TestCase
 {
     public function test_set_parent(): void
@@ -26,7 +25,7 @@ class NoopSpanBuilderTest extends TestCase
         $this->assertInstanceOf(
             NoopSpanBuilder::class,
             (new NoopSpanBuilder($contextStorage))->setParent(
-            // @todo: Create a interface for Context to allow it to be mocked
+                // @todo: Create a interface for Context to allow it to be mocked
                 Context::getRoot()
             )
         );

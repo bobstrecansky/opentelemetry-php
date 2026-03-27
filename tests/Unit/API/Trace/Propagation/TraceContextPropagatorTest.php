@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace OpenTelemetry\Tests\Unit\API\Trace\Propagation;
 
-use OpenTelemetry\API\LoggerHolder;
+use OpenTelemetry\API\Behavior\Internal\Logging;
 use OpenTelemetry\API\Trace\Propagation\TraceContextPropagator;
 use OpenTelemetry\API\Trace\SpanContext;
 use OpenTelemetry\API\Trace\SpanContextInterface;
@@ -15,12 +15,10 @@ use OpenTelemetry\API\Trace\TraceStateInterface;
 use OpenTelemetry\Context\Context;
 use OpenTelemetry\Context\ContextInterface;
 use OpenTelemetry\SDK\Trace\Span;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
-use Psr\Log\NullLogger;
 
-/**
- * @covers \OpenTelemetry\API\Trace\Propagation\TraceContextPropagator
- */
+#[CoversClass(TraceContextPropagator::class)]
 class TraceContextPropagatorTest extends TestCase
 {
     private const TRACE_ID_BASE16 = 'ff000000000000000000000000000041';
@@ -33,9 +31,10 @@ class TraceContextPropagatorTest extends TestCase
     private TraceContextPropagator $traceContextPropagator;
     private TraceStateInterface $traceState;
 
+    #[\Override]
     protected function setUp(): void
     {
-        LoggerHolder::set(new NullLogger());
+        Logging::disable();
         $this->traceContextPropagator = TraceContextPropagator::getInstance();
         $this->traceState = (new TraceState())->with('bar', 'baz')->with('foo', 'bar');
     }
@@ -287,6 +286,18 @@ class TraceContextPropagatorTest extends TestCase
             SpanContext::createFromRemoteParent(self::TRACE_ID_BASE16, self::SPAN_ID_BASE16, TraceFlags::DEFAULT, $this->traceState),
             $this->getSpanContext($this->traceContextPropagator->extract($carrierFutureMoreParts)),
         );
+    }
+
+    public function test_trace_context_level2_random_flag(): void
+    {
+        $traceparent = '00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-03';
+
+        $context = $this->traceContextPropagator->extract([TraceContextPropagator::TRACEPARENT => $traceparent]);
+        $this->assertSame(TraceFlags::SAMPLED | TraceFlags::RANDOM, Span::fromContext($context)->getContext()->getTraceFlags());
+
+        $carrier = [];
+        $this->traceContextPropagator->inject($carrier, context: $context);
+        $this->assertSame($traceparent, $carrier[TraceContextPropagator::TRACEPARENT]);
     }
 
     public function test_invalid_traceparent_version_0xff(): void

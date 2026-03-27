@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OpenTelemetry\Tests\Benchmark;
 
+use OpenTelemetry\API\Common\Time\Clock;
 use OpenTelemetry\API\Trace\TracerInterface;
 use OpenTelemetry\Contrib\Otlp\SpanExporter;
 use OpenTelemetry\SDK\Common\Attribute\Attributes;
@@ -11,7 +12,6 @@ use OpenTelemetry\SDK\Common\Export\TransportInterface;
 use OpenTelemetry\SDK\Common\Future\CancellationInterface;
 use OpenTelemetry\SDK\Common\Future\CompletedFuture;
 use OpenTelemetry\SDK\Common\Future\FutureInterface;
-use OpenTelemetry\SDK\Common\Time\ClockFactory;
 use OpenTelemetry\SDK\Resource\ResourceInfo;
 use OpenTelemetry\SDK\Trace\Sampler\AlwaysOnSampler;
 use OpenTelemetry\SDK\Trace\SamplerInterface;
@@ -26,8 +26,8 @@ use OpenTelemetry\SDK\Trace\TracerProvider;
 class OtlpBench
 {
     private TracerInterface $tracer;
-    private SamplerInterface $sampler;
-    private ResourceInfo $resource;
+    private readonly SamplerInterface $sampler;
+    private readonly ResourceInfo $resource;
 
     private const PROTOBUF = 'application/x-protobuf';
     private const JSON = 'application/json';
@@ -51,31 +51,38 @@ class OtlpBench
         $this->tracer = $provider->getTracer('io.opentelemetry.contrib.php');
     }
 
+    /**
+     * @psalm-suppress MissingTemplateParam
+     */
     private function createTransport(string $contentType): TransportInterface
     {
         return new class($contentType) implements TransportInterface {
-            private string $contentType;
+            private readonly string $contentType;
 
             public function __construct(string $contentType)
             {
                 $this->contentType = $contentType;
             }
 
+            #[\Override]
             public function contentType(): string
             {
                 return $this->contentType;
             }
 
+            #[\Override]
             public function send(string $payload, ?CancellationInterface $cancellation = null): FutureInterface
             {
                 return new CompletedFuture('');
             }
 
+            #[\Override]
             public function shutdown(?CancellationInterface $cancellation = null): bool
             {
                 return true;
             }
 
+            #[\Override]
             public function forceFlush(?CancellationInterface $cancellation = null): bool
             {
                 return true;
@@ -92,7 +99,7 @@ class OtlpBench
         $exporter = new SpanExporter($transport);
         $processor = $params[1] === self::SIMPLE
             ? new SimpleSpanProcessor($exporter)
-            : new BatchSpanProcessor($exporter, ClockFactory::getDefault());
+            : new BatchSpanProcessor($exporter, Clock::getDefault());
         $provider = new TracerProvider($processor, $this->sampler, $this->resource);
         $this->tracer = $provider->getTracer('io.opentelemetry.contrib.php');
     }

@@ -8,18 +8,18 @@ use Exception;
 use InvalidArgumentException;
 use OpenTelemetry\Contrib\Grpc\GrpcTransport;
 use OpenTelemetry\Contrib\Grpc\GrpcTransportFactory;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 
-/**
- * @covers \OpenTelemetry\Contrib\Grpc\GrpcTransport
- */
+#[CoversClass(GrpcTransport::class)]
 final class GrpcTransportTest extends TestCase
 {
     private GrpcTransport $transport;
 
+    #[\Override]
     public function setUp(): void
     {
-        $this->transport = new GrpcTransport('http://localhost:4317', [], '/method', []);
+        $this->transport = new GrpcTransport('http://localhost:4317', [], '/method', [], 123);
     }
 
     public function test_grpc_transport_supports_only_protobuf(): void

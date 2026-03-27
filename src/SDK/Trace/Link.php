@@ -9,20 +9,19 @@ use OpenTelemetry\SDK\Common\Attribute\AttributesInterface;
 
 final class Link implements LinkInterface
 {
-    private AttributesInterface $attributes;
-    private API\SpanContextInterface $context;
-
-    public function __construct(API\SpanContextInterface $context, AttributesInterface $attributes)
-    {
-        $this->context = $context;
-        $this->attributes = $attributes;
+    public function __construct(
+        private readonly API\SpanContextInterface $context,
+        private readonly AttributesInterface $attributes,
+    ) {
     }
 
+    #[\Override]
     public function getSpanContext(): API\SpanContextInterface
     {
         return $this->context;
     }
 
+    #[\Override]
     public function getAttributes(): AttributesInterface
     {
         return $this->attributes;

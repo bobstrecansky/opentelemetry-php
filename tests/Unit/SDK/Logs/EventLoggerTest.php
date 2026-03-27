@@ -1,0 +1,133 @@
+<?php
+
+declare(strict_types=1);
+
+namespace OpenTelemetry\Tests\Unit\SDK\Logs;
+
+use OpenTelemetry\API\Behavior\Internal\Logging;
+use OpenTelemetry\API\Common\Time\Clock;
+use OpenTelemetry\API\Common\Time\TestClock;
+use OpenTelemetry\API\Logs\LoggerInterface;
+use OpenTelemetry\API\Logs\LogRecord;
+use OpenTelemetry\API\Logs\Severity;
+use OpenTelemetry\Context\Context;
+use OpenTelemetry\SDK\Logs\EventLogger;
+use OpenTelemetry\SDK\Logs\EventLoggerProvider;
+use OpenTelemetry\SDK\Logs\Exporter\InMemoryExporter;
+use OpenTelemetry\SDK\Logs\LoggerProviderBuilder;
+use OpenTelemetry\SDK\Logs\LoggerProviderInterface;
+use OpenTelemetry\SDK\Logs\Processor\SimpleLogRecordProcessor;
+use OpenTelemetry\SDK\Logs\ReadableLogRecord;
+use PHPUnit\Framework\Attributes\BackupGlobals;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\MockObject\MockObject;
+use PHPUnit\Framework\TestCase;
+
+#[CoversClass(EventLogger::class)]
+class EventLoggerTest extends TestCase
+{
+    private LoggerInterface&MockObject $logger;
+    private EventLoggerProvider $eventLoggerProvider;
+    private TestClock $clock;
+
+    #[\Override]
+    public function setUp(): void
+    {
+        $this->clock = new TestClock();
+        Clock::setDefault($this->clock);
+        $this->logger = $this->createMock(LoggerInterface::class);
+        $loggerProvider = $this->createMock(LoggerProviderInterface::class);
+        $loggerProvider->method('getLogger')->willReturn($this->logger);
+        $this->eventLoggerProvider = new EventLoggerProvider($loggerProvider);
+    }
+
+    public function test_emit(): void
+    {
+        $this->logger->expects($this->once())->method('emit')->with($this->callback(function (LogRecord $logRecord) {
+            $expected = (new LogRecord('some.payload'))
+                ->setSeverityNumber(Severity::ERROR)
+                ->setTimestamp(123456)
+                ->setContext(Context::getCurrent())
+                ->setAttributes([
+                    'event.name' => 'my.event',
+                    'bar' => 'bar',
+                ]);
+            $this->assertEquals($expected, $logRecord);
+
+            return true;
+        }));
+
+        $eventLogger = $this->eventLoggerProvider->getEventLogger('event.logger', '1.0', 'https://example.org/schema', ['foo' => 'foo']);
+        $eventLogger->emit('my.event', 'some.payload', 123456, severityNumber: Severity::ERROR, attributes: ['bar' => 'bar']);
+    }
+
+    public function test_default_values(): void
+    {
+        $this->logger->expects($this->once())->method('emit')->with($this->callback(function (LogRecord $logRecord) {
+            $expected = (new LogRecord())
+                ->setSeverityNumber(Severity::INFO)
+                ->setTimestamp($this->clock->now())
+                ->setContext(Context::getCurrent())
+                ->setAttributes([
+                    'event.name' => 'my.event',
+                ]);
+            $this->assertEquals($expected, $logRecord);
+
+            return true;
+        }));
+
+        $eventLogger = $this->eventLoggerProvider->getEventLogger('event.logger');
+        $eventLogger->emit('my.event');
+    }
+
+    /**
+     * "The user provided Attributes MUST not take over the event.name attribute"
+     * @see https://github.com/open-telemetry/opentelemetry-specification/blob/v1.32.0/specification/logs/event-sdk.md#emit-event
+     */
+    public function test_event_name_attribute_is_ignored(): void
+    {
+        $this->logger->expects($this->once())->method('emit')->with($this->callback(function (LogRecord $logRecord) {
+            $expected = (new LogRecord())
+                ->setSeverityNumber(Severity::INFO)
+                ->setTimestamp($this->clock->now())
+                ->setContext(Context::getCurrent())
+                ->setAttributes([
+                    'event.name' => 'my.event',
+                ]);
+            $this->assertEquals($expected, $logRecord);
+
+            return true;
+        }));
+
+        $eventLogger = $this->eventLoggerProvider->getEventLogger('event.logger');
+        $eventLogger->emit('my.event', attributes: ['event.name' => 'not.my.event']);
+    }
+
+    /**
+     * "The event.name attribute MUST be the first attribute added to the LogRecord"
+     * @see https://github.com/open-telemetry/opentelemetry-php/pull/1768#issuecomment-3527425474
+     */
+    #[BackupGlobals(true)]
+    public function test_event_name_is_not_dropped_first(): void
+    {
+        $_SERVER['OTEL_LOGRECORD_ATTRIBUTE_COUNT_LIMIT'] = 1;
+        $eventLoggerProvider = new EventLoggerProvider((new LoggerProviderBuilder())
+            ->addLogRecordProcessor(new SimpleLogRecordProcessor($exporter = new InMemoryExporter()))
+            ->build());
+        $eventLogger = $eventLoggerProvider->getEventLogger('test');
+
+        Logging::disable();
+
+        try {
+            $eventLogger->emit('my.event', attributes: ['other.attribute' => 'not.my.event']);
+        } finally {
+            Logging::reset();
+        }
+        $eventLoggerProvider->forceFlush();
+
+        /** @var list<ReadableLogRecord> $logs */
+        $logs = $exporter->getStorage()->getArrayCopy();
+        $this->assertCount(1, $logs);
+        $this->assertArrayHasKey('event.name', $logs[0]->getAttributes()->toArray());
+    }
+}

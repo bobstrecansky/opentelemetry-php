@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OpenTelemetry\Tests\Unit\SDK\Metrics\MetricRegistry;
 
+use OpenTelemetry\API\Common\Time\TestClock;
 use OpenTelemetry\API\Metrics\ObserverInterface;
 use OpenTelemetry\SDK\Common\Attribute\Attributes;
 use OpenTelemetry\SDK\Metrics\Aggregation\SumAggregation;
@@ -13,19 +14,19 @@ use OpenTelemetry\SDK\Metrics\Data\Temporality;
 use OpenTelemetry\SDK\Metrics\Instrument;
 use OpenTelemetry\SDK\Metrics\InstrumentType;
 use OpenTelemetry\SDK\Metrics\MetricRegistry\MetricRegistry;
+use OpenTelemetry\SDK\Metrics\MetricRegistry\MultiObserver;
+use OpenTelemetry\SDK\Metrics\MetricRegistry\NoopObserver;
 use OpenTelemetry\SDK\Metrics\Stream\AsynchronousMetricStream;
 use OpenTelemetry\SDK\Metrics\Stream\MetricAggregator;
 use OpenTelemetry\SDK\Metrics\Stream\MetricAggregatorFactory;
 use OpenTelemetry\SDK\Metrics\Stream\SynchronousMetricStream;
-use OpenTelemetry\Tests\Unit\SDK\Util\TestClock;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use function printf;
 
-/**
- * @covers \OpenTelemetry\SDK\Metrics\MetricRegistry\MetricRegistry
- * @covers \OpenTelemetry\SDK\Metrics\MetricRegistry\MultiObserver
- * @covers \OpenTelemetry\SDK\Metrics\MetricRegistry\NoopObserver
- */
+#[CoversClass(MetricRegistry::class)]
+#[CoversClass(MultiObserver::class)]
+#[CoversClass(NoopObserver::class)]
 final class MetricRegistryTest extends TestCase
 {
     public function test_collect_and_push_recorded_value(): void
@@ -62,6 +63,9 @@ final class MetricRegistryTest extends TestCase
         ], Temporality::CUMULATIVE, true), $stream->collect($reader));
     }
 
+    /**
+     * @psalm-suppress RedundantFunctionCall
+     */
     public function test_collect_and_push_invokes_requested_callback_only_once(): void
     {
         $this->expectOutputString('0');
@@ -79,6 +83,9 @@ final class MetricRegistryTest extends TestCase
         $registry->collectAndPush([$streamId0, $streamId1]);
     }
 
+    /**
+     * @psalm-suppress RedundantFunctionCall
+     */
     public function test_collect_and_push_invokes_only_requested_callbacks(): void
     {
         $this->expectOutputString('0011');

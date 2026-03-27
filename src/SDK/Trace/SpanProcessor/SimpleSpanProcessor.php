@@ -20,8 +20,6 @@ use Throwable;
 class SimpleSpanProcessor implements SpanProcessorInterface
 {
     use LogsMessagesTrait;
-
-    private SpanExporterInterface $exporter;
     private ContextInterface $exportContext;
 
     private bool $running = false;
@@ -30,18 +28,18 @@ class SimpleSpanProcessor implements SpanProcessorInterface
 
     private bool $closed = false;
 
-    public function __construct(SpanExporterInterface $exporter)
+    public function __construct(private readonly SpanExporterInterface $exporter)
     {
-        $this->exporter = $exporter;
-
         $this->exportContext = Context::getCurrent();
         $this->queue = new SplQueue();
     }
 
+    #[\Override]
     public function onStart(ReadWriteSpanInterface $span, ContextInterface $parentContext): void
     {
     }
 
+    #[\Override]
     public function onEnd(ReadableSpanInterface $span): void
     {
         if ($this->closed) {
@@ -55,6 +53,7 @@ class SimpleSpanProcessor implements SpanProcessorInterface
         $this->flush(fn () => $this->exporter->export([$spanData])->await(), 'export', false, $this->exportContext);
     }
 
+    #[\Override]
     public function forceFlush(?CancellationInterface $cancellation = null): bool
     {
         if ($this->closed) {
@@ -64,6 +63,7 @@ class SimpleSpanProcessor implements SpanProcessorInterface
         return $this->flush(fn (): bool => $this->exporter->forceFlush($cancellation), __FUNCTION__, true, Context::getCurrent());
     }
 
+    #[\Override]
     public function shutdown(?CancellationInterface $cancellation = null): bool
     {
         if ($this->closed) {

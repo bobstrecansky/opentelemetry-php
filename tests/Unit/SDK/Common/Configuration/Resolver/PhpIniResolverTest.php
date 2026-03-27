@@ -6,17 +6,20 @@ namespace OpenTelemetry\Tests\Unit\SDK\Common\Configuration\Resolver;
 
 use OpenTelemetry\SDK\Common\Configuration\Resolver\PhpIniAccessor;
 use OpenTelemetry\SDK\Common\Configuration\Resolver\PhpIniResolver;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
- * @covers \OpenTelemetry\SDK\Common\Configuration\Resolver\PhpIniResolver
  * @psalm-suppress UndefinedMethod
  */
+#[CoversClass(PhpIniResolver::class)]
 class PhpIniResolverTest extends TestCase
 {
     private PhpIniAccessor $accessor;
     private PhpIniResolver $resolver;
 
+    #[\Override]
     public function setUp(): void
     {
         $this->accessor = $this->createMock(PhpIniAccessor::class);
@@ -35,16 +38,14 @@ class PhpIniResolverTest extends TestCase
         $this->assertSame('foo', $this->resolver->retrieveValue('OTEL_FOO'));
     }
 
-    /**
-     * @dataProvider hasVariableProvider
-     */
+    #[DataProvider('hasVariableProvider')]
     public function test_has_variable($value, bool $expected): void
     {
         $this->accessor->method('get')->willReturn($value);
         $this->assertSame($expected, $this->resolver->hasVariable('OTEL_FOO'));
     }
 
-    public function hasVariableProvider(): array
+    public static function hasVariableProvider(): array
     {
         return [
             'string' => ['foo', true],

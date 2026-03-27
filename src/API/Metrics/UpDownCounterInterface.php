@@ -6,9 +6,8 @@ namespace OpenTelemetry\API\Metrics;
 
 use OpenTelemetry\Context\ContextInterface;
 
-interface UpDownCounterInterface
+interface UpDownCounterInterface extends SynchronousInstrument
 {
-
     /**
      * @param float|int $amount amount to increment / decrement by
      * @param iterable<non-empty-string, string|bool|float|int|array|null> $attributes

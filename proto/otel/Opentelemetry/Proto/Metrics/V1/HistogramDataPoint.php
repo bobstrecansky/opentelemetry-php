@@ -28,6 +28,15 @@ class HistogramDataPoint extends \Google\Protobuf\Internal\Message
      * where this point belongs. The list may be empty (may contain 0 elements).
      * Attribute keys MUST be unique (it is not allowed to have more than one
      * attribute with the same key).
+     * The attribute values SHOULD NOT contain empty values.
+     * The attribute values SHOULD NOT contain bytes values.
+     * The attribute values SHOULD NOT contain array values different than array of string values, bool values, int values,
+     * double values.
+     * The attribute values SHOULD NOT contain kvlist values.
+     * The behavior of software that receives attributes containing such values can be unpredictable.
+     * These restrictions can change in a minor release.
+     * The restrictions take origin from the OpenTelemetry specification:
+     * https://github.com/open-telemetry/opentelemetry-specification/blob/v1.47.0/specification/common/README.md#attribute.
      *
      * Generated from protobuf field <code>repeated .opentelemetry.proto.common.v1.KeyValue attributes = 9;</code>
      */
@@ -64,7 +73,7 @@ class HistogramDataPoint extends \Google\Protobuf\Internal\Message
      * events, and is assumed to be monotonic over the values of these events.
      * Negative events *can* be recorded, but sum should not be filled out when
      * doing so.  This is specifically to enforce compatibility w/ OpenMetrics,
-     * see: https://github.com/OpenObservability/OpenMetrics/blob/main/specification/OpenMetrics.md#histogram
+     * see: https://github.com/prometheus/OpenMetrics/blob/v1.0.0/specification/OpenMetrics.md#histogram
      *
      * Generated from protobuf field <code>optional double sum = 5;</code>
      */
@@ -74,7 +83,9 @@ class HistogramDataPoint extends \Google\Protobuf\Internal\Message
      * for each bucket.
      * The sum of the bucket_counts must equal the value in the count field.
      * The number of elements in bucket_counts array must be by one greater than
-     * the number of elements in explicit_bounds array.
+     * the number of elements in explicit_bounds array. The exception to this rule
+     * is when the length of bucket_counts is 0, then the length of explicit_bounds
+     * must also be 0.
      *
      * Generated from protobuf field <code>repeated fixed64 bucket_counts = 6;</code>
      */
@@ -89,6 +100,8 @@ class HistogramDataPoint extends \Google\Protobuf\Internal\Message
      * Histogram buckets are inclusive of their upper boundary, except the last
      * bucket where the boundary is at infinity. This format is intentionally
      * compatible with the OpenMetrics histogram definition.
+     * If bucket_counts length is 0 then explicit_bounds length must also be 0,
+     * otherwise the data point is invalid.
      *
      * Generated from protobuf field <code>repeated double explicit_bounds = 7;</code>
      */
@@ -131,6 +144,15 @@ class HistogramDataPoint extends \Google\Protobuf\Internal\Message
      *           where this point belongs. The list may be empty (may contain 0 elements).
      *           Attribute keys MUST be unique (it is not allowed to have more than one
      *           attribute with the same key).
+     *           The attribute values SHOULD NOT contain empty values.
+     *           The attribute values SHOULD NOT contain bytes values.
+     *           The attribute values SHOULD NOT contain array values different than array of string values, bool values, int values,
+     *           double values.
+     *           The attribute values SHOULD NOT contain kvlist values.
+     *           The behavior of software that receives attributes containing such values can be unpredictable.
+     *           These restrictions can change in a minor release.
+     *           The restrictions take origin from the OpenTelemetry specification:
+     *           https://github.com/open-telemetry/opentelemetry-specification/blob/v1.47.0/specification/common/README.md#attribute.
      *     @type int|string $start_time_unix_nano
      *           StartTimeUnixNano is optional but strongly encouraged, see the
      *           the detailed comments above Metric.
@@ -151,13 +173,15 @@ class HistogramDataPoint extends \Google\Protobuf\Internal\Message
      *           events, and is assumed to be monotonic over the values of these events.
      *           Negative events *can* be recorded, but sum should not be filled out when
      *           doing so.  This is specifically to enforce compatibility w/ OpenMetrics,
-     *           see: https://github.com/OpenObservability/OpenMetrics/blob/main/specification/OpenMetrics.md#histogram
+     *           see: https://github.com/prometheus/OpenMetrics/blob/v1.0.0/specification/OpenMetrics.md#histogram
      *     @type int[]|string[]|\Google\Protobuf\Internal\RepeatedField $bucket_counts
      *           bucket_counts is an optional field contains the count values of histogram
      *           for each bucket.
      *           The sum of the bucket_counts must equal the value in the count field.
      *           The number of elements in bucket_counts array must be by one greater than
-     *           the number of elements in explicit_bounds array.
+     *           the number of elements in explicit_bounds array. The exception to this rule
+     *           is when the length of bucket_counts is 0, then the length of explicit_bounds
+     *           must also be 0.
      *     @type float[]|\Google\Protobuf\Internal\RepeatedField $explicit_bounds
      *           explicit_bounds specifies buckets with explicitly defined bounds for values.
      *           The boundaries for bucket at index i are:
@@ -168,6 +192,8 @@ class HistogramDataPoint extends \Google\Protobuf\Internal\Message
      *           Histogram buckets are inclusive of their upper boundary, except the last
      *           bucket where the boundary is at infinity. This format is intentionally
      *           compatible with the OpenMetrics histogram definition.
+     *           If bucket_counts length is 0 then explicit_bounds length must also be 0,
+     *           otherwise the data point is invalid.
      *     @type \Opentelemetry\Proto\Metrics\V1\Exemplar[]|\Google\Protobuf\Internal\RepeatedField $exemplars
      *           (Optional) List of exemplars collected from
      *           measurements that were used to form the data point
@@ -190,6 +216,15 @@ class HistogramDataPoint extends \Google\Protobuf\Internal\Message
      * where this point belongs. The list may be empty (may contain 0 elements).
      * Attribute keys MUST be unique (it is not allowed to have more than one
      * attribute with the same key).
+     * The attribute values SHOULD NOT contain empty values.
+     * The attribute values SHOULD NOT contain bytes values.
+     * The attribute values SHOULD NOT contain array values different than array of string values, bool values, int values,
+     * double values.
+     * The attribute values SHOULD NOT contain kvlist values.
+     * The behavior of software that receives attributes containing such values can be unpredictable.
+     * These restrictions can change in a minor release.
+     * The restrictions take origin from the OpenTelemetry specification:
+     * https://github.com/open-telemetry/opentelemetry-specification/blob/v1.47.0/specification/common/README.md#attribute.
      *
      * Generated from protobuf field <code>repeated .opentelemetry.proto.common.v1.KeyValue attributes = 9;</code>
      * @return \Google\Protobuf\Internal\RepeatedField
@@ -204,6 +239,15 @@ class HistogramDataPoint extends \Google\Protobuf\Internal\Message
      * where this point belongs. The list may be empty (may contain 0 elements).
      * Attribute keys MUST be unique (it is not allowed to have more than one
      * attribute with the same key).
+     * The attribute values SHOULD NOT contain empty values.
+     * The attribute values SHOULD NOT contain bytes values.
+     * The attribute values SHOULD NOT contain array values different than array of string values, bool values, int values,
+     * double values.
+     * The attribute values SHOULD NOT contain kvlist values.
+     * The behavior of software that receives attributes containing such values can be unpredictable.
+     * These restrictions can change in a minor release.
+     * The restrictions take origin from the OpenTelemetry specification:
+     * https://github.com/open-telemetry/opentelemetry-specification/blob/v1.47.0/specification/common/README.md#attribute.
      *
      * Generated from protobuf field <code>repeated .opentelemetry.proto.common.v1.KeyValue attributes = 9;</code>
      * @param \Opentelemetry\Proto\Common\V1\KeyValue[]|\Google\Protobuf\Internal\RepeatedField $var
@@ -316,7 +360,7 @@ class HistogramDataPoint extends \Google\Protobuf\Internal\Message
      * events, and is assumed to be monotonic over the values of these events.
      * Negative events *can* be recorded, but sum should not be filled out when
      * doing so.  This is specifically to enforce compatibility w/ OpenMetrics,
-     * see: https://github.com/OpenObservability/OpenMetrics/blob/main/specification/OpenMetrics.md#histogram
+     * see: https://github.com/prometheus/OpenMetrics/blob/v1.0.0/specification/OpenMetrics.md#histogram
      *
      * Generated from protobuf field <code>optional double sum = 5;</code>
      * @return float
@@ -343,7 +387,7 @@ class HistogramDataPoint extends \Google\Protobuf\Internal\Message
      * events, and is assumed to be monotonic over the values of these events.
      * Negative events *can* be recorded, but sum should not be filled out when
      * doing so.  This is specifically to enforce compatibility w/ OpenMetrics,
-     * see: https://github.com/OpenObservability/OpenMetrics/blob/main/specification/OpenMetrics.md#histogram
+     * see: https://github.com/prometheus/OpenMetrics/blob/v1.0.0/specification/OpenMetrics.md#histogram
      *
      * Generated from protobuf field <code>optional double sum = 5;</code>
      * @param float $var
@@ -362,7 +406,9 @@ class HistogramDataPoint extends \Google\Protobuf\Internal\Message
      * for each bucket.
      * The sum of the bucket_counts must equal the value in the count field.
      * The number of elements in bucket_counts array must be by one greater than
-     * the number of elements in explicit_bounds array.
+     * the number of elements in explicit_bounds array. The exception to this rule
+     * is when the length of bucket_counts is 0, then the length of explicit_bounds
+     * must also be 0.
      *
      * Generated from protobuf field <code>repeated fixed64 bucket_counts = 6;</code>
      * @return \Google\Protobuf\Internal\RepeatedField
@@ -377,7 +423,9 @@ class HistogramDataPoint extends \Google\Protobuf\Internal\Message
      * for each bucket.
      * The sum of the bucket_counts must equal the value in the count field.
      * The number of elements in bucket_counts array must be by one greater than
-     * the number of elements in explicit_bounds array.
+     * the number of elements in explicit_bounds array. The exception to this rule
+     * is when the length of bucket_counts is 0, then the length of explicit_bounds
+     * must also be 0.
      *
      * Generated from protobuf field <code>repeated fixed64 bucket_counts = 6;</code>
      * @param int[]|string[]|\Google\Protobuf\Internal\RepeatedField $var
@@ -401,6 +449,8 @@ class HistogramDataPoint extends \Google\Protobuf\Internal\Message
      * Histogram buckets are inclusive of their upper boundary, except the last
      * bucket where the boundary is at infinity. This format is intentionally
      * compatible with the OpenMetrics histogram definition.
+     * If bucket_counts length is 0 then explicit_bounds length must also be 0,
+     * otherwise the data point is invalid.
      *
      * Generated from protobuf field <code>repeated double explicit_bounds = 7;</code>
      * @return \Google\Protobuf\Internal\RepeatedField
@@ -420,6 +470,8 @@ class HistogramDataPoint extends \Google\Protobuf\Internal\Message
      * Histogram buckets are inclusive of their upper boundary, except the last
      * bucket where the boundary is at infinity. This format is intentionally
      * compatible with the OpenMetrics histogram definition.
+     * If bucket_counts length is 0 then explicit_bounds length must also be 0,
+     * otherwise the data point is invalid.
      *
      * Generated from protobuf field <code>repeated double explicit_bounds = 7;</code>
      * @param float[]|\Google\Protobuf\Internal\RepeatedField $var

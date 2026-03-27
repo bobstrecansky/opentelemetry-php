@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OpenTelemetry\SDK;
 
+use OpenTelemetry\Context\Propagation\ResponsePropagatorInterface;
 use OpenTelemetry\Context\Propagation\TextMapPropagatorInterface;
 use OpenTelemetry\SDK\Common\Export\TransportFactoryInterface;
 use OpenTelemetry\SDK\Logs\LogRecordExporterFactoryInterface;
@@ -11,10 +12,12 @@ use OpenTelemetry\SDK\Metrics\MetricExporterFactoryInterface;
 use OpenTelemetry\SDK\Resource\ResourceDetectorInterface;
 use OpenTelemetry\SDK\Trace\SpanExporter\SpanExporterFactoryInterface;
 use RuntimeException;
+use TypeError;
 
 /**
  * A registry to enable central registration of components that the SDK requires but which may be provided
  * by non-SDK modules, such as contrib and extension.
+ * @todo [breaking] deprecate this mechanism of setting up components, in favor of using SPI.
  */
 class Registry
 {
@@ -24,92 +27,88 @@ class Registry
     private static array $textMapPropagators = [];
     private static array $logRecordExporterFactories = [];
     private static array $resourceDetectors = [];
+    private static array $responsePropagators = [];
 
     /**
      * @param TransportFactoryInterface|class-string<TransportFactoryInterface> $factory
+     * @throws TypeError
      */
-    public static function registerTransportFactory(string $protocol, $factory, bool $clobber = false): void
+    public static function registerTransportFactory(string $protocol, TransportFactoryInterface|string $factory, bool $clobber = false): void
     {
         if (!$clobber && array_key_exists($protocol, self::$transportFactories)) {
             return;
         }
         if (!is_subclass_of($factory, TransportFactoryInterface::class)) {
-            trigger_error(
+            throw new TypeError(
                 sprintf(
                     'Cannot register transport factory: %s must exist and implement %s',
-                    is_string($factory) ? $factory : get_class($factory),
+                    is_string($factory) ? $factory : $factory::class,
                     TransportFactoryInterface::class
-                ),
-                E_USER_WARNING
+                )
             );
-
-            return;
         }
         self::$transportFactories[$protocol] = $factory;
     }
 
     /**
      * @param SpanExporterFactoryInterface|class-string<SpanExporterFactoryInterface> $factory
+     * @throws TypeError
      */
-    public static function registerSpanExporterFactory(string $exporter, $factory, bool $clobber = false): void
+    public static function registerSpanExporterFactory(string $exporter, SpanExporterFactoryInterface|string $factory, bool $clobber = false): void
     {
         if (!$clobber && array_key_exists($exporter, self::$spanExporterFactories)) {
             return;
         }
         if (!is_subclass_of($factory, SpanExporterFactoryInterface::class)) {
-            trigger_error(
+            throw new TypeError(
                 sprintf(
                     'Cannot register span exporter factory: %s must exist and implement %s',
-                    is_string($factory) ? $factory : get_class($factory),
+                    is_string($factory) ? $factory : $factory::class,
                     SpanExporterFactoryInterface::class
-                ),
-                E_USER_WARNING
+                )
             );
-
-            return;
         }
         self::$spanExporterFactories[$exporter] = $factory;
     }
 
     /**
      * @param MetricExporterFactoryInterface|class-string<MetricExporterFactoryInterface> $factory
+     * @throws TypeError
      */
-    public static function registerMetricExporterFactory(string $exporter, $factory, bool $clobber = false): void
+    public static function registerMetricExporterFactory(string $exporter, MetricExporterFactoryInterface|string $factory, bool $clobber = false): void
     {
         if (!$clobber && array_key_exists($exporter, self::$metricExporterFactories)) {
             return;
         }
         if (!is_subclass_of($factory, MetricExporterFactoryInterface::class)) {
-            trigger_error(
+            throw new TypeError(
                 sprintf(
                     'Cannot register metric factory: %s must exist and implement %s',
-                    is_string($factory) ? $factory : get_class($factory),
+                    is_string($factory) ? $factory : $factory::class,
                     MetricExporterFactoryInterface::class
-                ),
-                E_USER_WARNING
+                )
             );
-
-            return;
         }
         self::$metricExporterFactories[$exporter] = $factory;
     }
 
-    public static function registerLogRecordExporterFactory(string $exporter, $factory, bool $clobber = false): void
+    /**
+     * @param LogRecordExporterFactoryInterface|class-string<LogRecordExporterFactoryInterface> $factory
+     * @throws TypeError
+     */
+    public static function registerLogRecordExporterFactory(string $exporter, LogRecordExporterFactoryInterface|string $factory, bool $clobber = false): void
     {
         if (!$clobber && array_key_exists($exporter, self::$logRecordExporterFactories)) {
             return;
         }
         if (!is_subclass_of($factory, LogRecordExporterFactoryInterface::class)) {
-            trigger_error(
+            throw new TypeError(
                 sprintf(
                     'Cannot register LogRecord exporter factory: %s must exist and implement %s',
-                    is_string($factory) ? $factory : get_class($factory),
+                    is_string($factory) ? $factory : $factory::class,
                     LogRecordExporterFactoryInterface::class
-                ),
-                E_USER_WARNING
+                )
             );
-
-            return;
         }
         self::$logRecordExporterFactories[$exporter] = $factory;
     }
@@ -125,6 +124,14 @@ class Registry
     public static function registerResourceDetector(string $name, ResourceDetectorInterface $detector): void
     {
         self::$resourceDetectors[$name] = $detector;
+    }
+
+    public static function registerResponsePropagator(string $name, ResponsePropagatorInterface $responsePropagator, bool $clobber = false): void
+    {
+        if (!$clobber && array_key_exists($name, self::$responsePropagators)) {
+            return;
+        }
+        self::$responsePropagators[$name] = $responsePropagator;
     }
 
     public static function spanExporterFactory(string $exporter): SpanExporterFactoryInterface
@@ -196,6 +203,15 @@ class Registry
         }
 
         return self::$resourceDetectors[$name];
+    }
+
+    public static function responsePropagator(string $name): ResponsePropagatorInterface
+    {
+        if (!array_key_exists($name, self::$responsePropagators)) {
+            throw new RuntimeException('Response propagator not registered for: ' . $name);
+        }
+
+        return self::$responsePropagators[$name];
     }
 
     /**

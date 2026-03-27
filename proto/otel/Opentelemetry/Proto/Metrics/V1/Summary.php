@@ -11,10 +11,13 @@ use Google\Protobuf\Internal\GPBUtil;
 /**
  * Summary metric data are used to convey quantile summaries,
  * a Prometheus (see: https://prometheus.io/docs/concepts/metric_types/#summary)
- * and OpenMetrics (see: https://github.com/OpenObservability/OpenMetrics/blob/4dbf6075567ab43296eed941037c12951faafb92/protos/prometheus.proto#L45)
+ * and OpenMetrics (see: https://github.com/prometheus/OpenMetrics/blob/4dbf6075567ab43296eed941037c12951faafb92/protos/prometheus.proto#L45)
  * data type. These data points cannot always be merged in a meaningful way.
  * While they can be useful in some applications, histogram data points are
  * recommended for new applications.
+ * Summary metrics do not have an aggregation temporality field. This is
+ * because the count and sum fields of a SummaryDataPoint are assumed to be
+ * cumulative values.
  *
  * Generated from protobuf message <code>opentelemetry.proto.metrics.v1.Summary</code>
  */

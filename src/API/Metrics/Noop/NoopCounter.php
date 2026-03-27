@@ -11,8 +11,15 @@ use OpenTelemetry\API\Metrics\CounterInterface;
  */
 final class NoopCounter implements CounterInterface
 {
+    #[\Override]
     public function add($amount, iterable $attributes = [], $context = null): void
     {
         // no-op
+    }
+
+    #[\Override]
+    public function isEnabled(): bool
+    {
+        return false;
     }
 }

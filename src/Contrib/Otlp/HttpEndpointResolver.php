@@ -25,7 +25,7 @@ class HttpEndpointResolver implements HttpEndpointResolverInterface
     private const DEFAULT_SCHEME = 'https';
     private const ROOT_PATH = '/';
 
-    private FactoryResolverInterface $httpFactoryResolver;
+    private readonly FactoryResolverInterface $httpFactoryResolver;
 
     public function __construct(?FactoryResolverInterface $httpFactoryResolver = null)
     {
@@ -37,6 +37,7 @@ class HttpEndpointResolver implements HttpEndpointResolverInterface
         return new self($httpFactoryResolver);
     }
 
+    #[\Override]
     public function resolve(string $endpoint, string $signal): UriInterface
     {
         $components = self::parseEndpoint($endpoint);
@@ -50,6 +51,7 @@ class HttpEndpointResolver implements HttpEndpointResolverInterface
         );
     }
 
+    #[\Override]
     public function resolveToString(string $endpoint, string $signal): string
     {
         return (string) $this->resolve($endpoint, $signal);

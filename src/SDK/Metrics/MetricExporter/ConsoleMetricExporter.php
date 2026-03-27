@@ -18,22 +18,14 @@ use OpenTelemetry\SDK\Resource\ResourceInfo;
  */
 class ConsoleMetricExporter implements PushMetricExporterInterface, AggregationTemporalitySelectorInterface
 {
-    /**
-     * @var string|Temporality|null
-     */
-    private $temporality;
-
-    /**
-     * @param string|Temporality|null $temporality
-     */
-    public function __construct($temporality = null)
+    public function __construct(private readonly Temporality|string|null $temporality = null)
     {
-        $this->temporality = $temporality;
     }
     /**
      * @inheritDoc
      */
-    public function temporality(MetricMetadataInterface $metric)
+    #[\Override]
+    public function temporality(MetricMetadataInterface $metric): Temporality|string|null
     {
         return $this->temporality ?? $metric->temporality();
     }
@@ -41,6 +33,7 @@ class ConsoleMetricExporter implements PushMetricExporterInterface, AggregationT
     /**
      * @inheritDoc
      */
+    #[\Override]
     public function export(iterable $batch): bool
     {
         $resource = null;
@@ -65,11 +58,13 @@ class ConsoleMetricExporter implements PushMetricExporterInterface, AggregationT
         return true;
     }
 
+    #[\Override]
     public function shutdown(): bool
     {
         return true;
     }
 
+    #[\Override]
     public function forceFlush(): bool
     {
         return true;
@@ -92,6 +87,7 @@ class ConsoleMetricExporter implements PushMetricExporterInterface, AggregationT
             'dropped_attributes_count' => $resource->getAttributes()->getDroppedAttributesCount(),
         ];
     }
+
     private function convertInstrumentationScope(InstrumentationScopeInterface $scope): array
     {
         return [

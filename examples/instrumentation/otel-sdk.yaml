@@ -1,0 +1,21 @@
+file_format: '0.4'
+
+propagator:
+  composite: []
+
+response_propagator/development:
+  composite: []
+
+tracer_provider:
+  processors:
+  - simple:
+      exporter:
+        console:
+  sampler:
+    always_on:
+
+instrumentation:
+  general:
+  php:
+    example_instrumentation:
+      span_name: ${EXAMPLE_INSTRUMENTATION_SPAN_NAME:-example span}

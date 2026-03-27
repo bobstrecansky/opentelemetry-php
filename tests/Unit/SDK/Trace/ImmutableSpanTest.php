@@ -12,11 +12,10 @@ use OpenTelemetry\SDK\Resource\ResourceInfo;
 use OpenTelemetry\SDK\Trace\ImmutableSpan;
 use OpenTelemetry\SDK\Trace\Span;
 use OpenTelemetry\SDK\Trace\StatusDataInterface;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 
-/**
- * @covers \OpenTelemetry\SDK\Trace\ImmutableSpan
- */
+#[CoversClass(ImmutableSpan::class)]
 class ImmutableSpanTest extends TestCase
 {
     private Span $span;
@@ -35,6 +34,7 @@ class ImmutableSpanTest extends TestCase
     private int $totalRecordedEvents = 1;
     private int $totalRecordedLinks = 1;
 
+    #[\Override]
     protected function setUp():void
     {
         $this->context = $this->createMock(API\SpanContextInterface::class);
@@ -66,6 +66,7 @@ class ImmutableSpanTest extends TestCase
             [],
             [],
             $this->attributes,
+            $this->totalRecordedLinks,
             $this->totalRecordedEvents,
             $this->status,
             $this->endEpochNanos,

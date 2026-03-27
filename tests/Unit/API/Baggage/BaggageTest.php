@@ -8,11 +8,10 @@ use OpenTelemetry\API\Baggage\Baggage;
 use OpenTelemetry\API\Baggage\Entry;
 use OpenTelemetry\API\Baggage\Metadata;
 use OpenTelemetry\Context\Context;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 
-/**
- * @covers \OpenTelemetry\API\Baggage\Baggage
- */
+#[CoversClass(Baggage::class)]
 class BaggageTest extends TestCase
 {
     // region contextInteraction
@@ -124,6 +123,12 @@ class BaggageTest extends TestCase
             ['foo' => 'bar', 'bar' => 'baz'],
             $arr
         );
+    }
+
+    public function test_empty_name_disallowed(): void
+    {
+        $baggage = Baggage::getBuilder()->set('', 'bar')->build();
+        $this->assertTrue($baggage->isEmpty());
     }
 
     // endregion

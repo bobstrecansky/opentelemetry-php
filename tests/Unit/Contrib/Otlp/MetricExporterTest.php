@@ -15,17 +15,17 @@ use OpenTelemetry\SDK\Metrics\Data\NumberDataPoint;
 use OpenTelemetry\SDK\Metrics\Data\Sum;
 use OpenTelemetry\SDK\Metrics\Data\Temporality;
 use OpenTelemetry\SDK\Resource\ResourceInfoFactory;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use function stream_get_contents;
 
-/**
- * @covers \OpenTelemetry\Contrib\Otlp\MetricExporter
- */
+#[CoversClass(MetricExporter::class)]
 final class MetricExporterTest extends TestCase
 {
     private $stream;
     private MetricExporter $exporter;
 
+    #[\Override]
     public function setUp(): void
     {
         $this->stream = fopen('php://memory', 'a+b');
@@ -50,7 +50,7 @@ final class MetricExporterTest extends TestCase
 
         fseek($this->stream, 0);
         $this->assertSame(<<<METRICS
-            {"resourceMetrics":[{"resource":{},"scopeMetrics":[{"scope":{"name":"test"},"metrics":[{"name":"test","sum":{"dataPoints":[{"startTimeUnixNano":"17","timeUnixNano":"42","asInt":"5"}],"aggregationTemporality":"AGGREGATION_TEMPORALITY_DELTA"}}]}]}]}
+            {"resourceMetrics":[{"resource":{},"scopeMetrics":[{"scope":{"name":"test"},"metrics":[{"name":"test","sum":{"dataPoints":[{"startTimeUnixNano":"17","timeUnixNano":"42","asInt":"5"}],"aggregationTemporality":1}}]}]}]}
 
             METRICS, stream_get_contents($this->stream));
     }
@@ -84,8 +84,8 @@ final class MetricExporterTest extends TestCase
 
         fseek($this->stream, 0);
         $this->assertSame(<<<METRICS
-            {"resourceMetrics":[{"resource":{},"scopeMetrics":[{"scope":{"name":"test"},"metrics":[{"name":"test","sum":{"dataPoints":[{"startTimeUnixNano":"17","timeUnixNano":"42","asInt":"5"}],"aggregationTemporality":"AGGREGATION_TEMPORALITY_DELTA"}}]}]}]}
-            {"resourceMetrics":[{"resource":{},"scopeMetrics":[{"scope":{"name":"test"},"metrics":[{"name":"test","sum":{"dataPoints":[{"startTimeUnixNano":"42","timeUnixNano":"57","asInt":"7"}],"aggregationTemporality":"AGGREGATION_TEMPORALITY_DELTA"}}]}]}]}
+            {"resourceMetrics":[{"resource":{},"scopeMetrics":[{"scope":{"name":"test"},"metrics":[{"name":"test","sum":{"dataPoints":[{"startTimeUnixNano":"17","timeUnixNano":"42","asInt":"5"}],"aggregationTemporality":1}}]}]}]}
+            {"resourceMetrics":[{"resource":{},"scopeMetrics":[{"scope":{"name":"test"},"metrics":[{"name":"test","sum":{"dataPoints":[{"startTimeUnixNano":"42","timeUnixNano":"57","asInt":"7"}],"aggregationTemporality":1}}]}]}]}
 
             METRICS, stream_get_contents($this->stream));
     }

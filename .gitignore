@@ -2,6 +2,8 @@ composer.phar
 composer.lock
 var/
 vendor/
+vendor-bin/**/vendor/
+vendor-bin/**/composer.lock
 coverage.clover
 tests/coverage
 .php-cs-fixer.cache
@@ -28,3 +30,9 @@ tests/TraceContext/W3CTestService/trace-context
 
 # deptrac cache
 /.deptrac.cache
+
+# output from phpdoc 
+docs/build
+
+# cache from phpdoc
+.phpdoc

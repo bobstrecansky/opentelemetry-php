@@ -1,0 +1,11 @@
+services:
+  phpdoc:
+    image: phpdoc/phpdoc:3@sha256:2b36e4f74937e40246d54ed12dfa4f988f21ed8d19e46f426ac3dc32eac2ff1d
+    volumes:
+      - ./:/data
+  preview:
+    image: nginx:alpine@sha256:f46cb72c7df02710e693e863a983ac42f6a9579058a59a35f1ae36c9958e4ce0
+    ports:
+      - 8080:80
+    volumes:
+      - ./docs/build:/usr/share/nginx/html

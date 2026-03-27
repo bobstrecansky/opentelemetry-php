@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace OpenTelemetry\Tests\Unit\Contrib\Otlp;
 
 use function fseek;
+use OpenTelemetry\API\Behavior\Internal\Logging;
 use OpenTelemetry\API\Trace\SpanContext;
 use OpenTelemetry\Contrib\Otlp\SpanExporter;
 use OpenTelemetry\SDK\Common\Export\Stream\StreamTransport;
@@ -12,20 +13,21 @@ use OpenTelemetry\SDK\Common\Export\TransportInterface;
 use OpenTelemetry\SDK\Common\Future\CompletedFuture;
 use OpenTelemetry\SDK\Common\Future\ErrorFuture;
 use OpenTelemetry\Tests\Unit\SDK\Util\SpanData;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use function stream_get_contents;
 
-/**
- * @covers \OpenTelemetry\Contrib\Otlp\SpanExporter
- */
+#[CoversClass(SpanExporter::class)]
 class SpanExporterTest extends TestCase
 {
     private MockObject $transport;
     private SpanExporter $exporter;
 
+    #[\Override]
     public function setUp(): void
     {
+        Logging::disable();
         $this->transport = $this->createMock(TransportInterface::class);
         $this->transport->method('contentType')->willReturn('application/x-protobuf');
         $this->exporter = new SpanExporter($this->transport);
@@ -91,10 +93,56 @@ class SpanExporterTest extends TestCase
                                         "traceId": "0af7651916cd43dd8448eb211c80319c",
                                         "spanId": "b7ad6b7169203331",
                                         "name": "test-span-data",
-                                        "kind": "SPAN_KIND_INTERNAL",
+                                        "flags": 256,
+                                        "kind": 1,
                                         "startTimeUnixNano": "1505855794194009601",
                                         "endTimeUnixNano": "1505855799465726528",
                                         "status": {}
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            }
+            TRACE, stream_get_contents($stream));
+    }
+
+    public function test_json_invalid_utf8_sequence_is_encoded_as_bytes_value(): void
+    {
+        $stream = fopen('php://memory', 'a+b');
+        $transport = new StreamTransport($stream, 'application/json');
+        $exporter = new SpanExporter($transport);
+
+        $exporter->export([
+            (new SpanData())
+                ->setContext(SpanContext::create('0af7651916cd43dd8448eb211c80319c', 'b7ad6b7169203331'))
+                ->addAttribute('invalid-utf8', "\xe2"),
+        ]);
+
+        fseek($stream, 0);
+        $this->assertJsonStringEqualsJsonString(<<<TRACE
+            {
+                "resourceSpans": [
+                    {
+                        "resource": {},
+                        "scopeSpans": [
+                            {
+                                "scope": {},
+                                "spans": [
+                                    {
+                                        "traceId": "0af7651916cd43dd8448eb211c80319c",
+                                        "spanId": "b7ad6b7169203331",
+                                        "name": "test-span-data",
+                                        "flags": 256,
+                                        "kind": 1,
+                                        "startTimeUnixNano": "1505855794194009601",
+                                        "endTimeUnixNano": "1505855799465726528",
+                                        "status": {},
+                                        "attributes": [{
+                                            "key": "invalid-utf8",
+                                            "value": {"bytesValue": "4g=="}
+                                        }]
                                     }
                                 ]
                             }

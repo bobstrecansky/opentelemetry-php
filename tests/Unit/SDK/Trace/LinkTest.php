@@ -7,16 +7,16 @@ namespace OpenTelemetry\Tests\Unit\SDK\Trace;
 use OpenTelemetry\API\Trace as API;
 use OpenTelemetry\SDK\Common\Attribute\AttributesInterface;
 use OpenTelemetry\SDK\Trace\Link;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 
-/**
- * @covers \OpenTelemetry\SDK\Trace\Link
- */
+#[CoversClass(Link::class)]
 class LinkTest extends TestCase
 {
     private API\SpanContextInterface $context;
     private AttributesInterface $attributes;
 
+    #[\Override]
     public function setUp(): void
     {
         $this->context = $this->createMock(API\SpanContextInterface::class);

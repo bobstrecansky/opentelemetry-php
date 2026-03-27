@@ -25,6 +25,12 @@ interface KnownValues
     public const VALUE_BAGGAGE = 'baggage';
     public const VALUE_B3 = 'b3';
     public const VALUE_B3_MULTI = 'b3multi';
+    public const VALUE_CLOUD_TRACE = 'cloudtrace';
+    public const VALUE_CLOUD_TRACE_ONEWAY = 'cloudtrace-oneway';
+    /** @deprecated no longer supported */
+    public const VALUE_JAEGER = 'jaeger';
+    /** @deprecated no longer supported */
+    public const VALUE_JAEGER_BAGGAGE = 'jaeger-baggage';
     public const VALUE_XRAY = 'xray';
     public const VALUE_OTTRACE = 'ottrace';
     public const VALUE_ALWAYS_ON = 'always_on';
@@ -39,6 +45,7 @@ interface KnownValues
     public const VALUE_HTTP_JSON = 'http/json';
     public const VALUE_HTTP_NDJSON = 'http/ndjson';
     public const VALUE_OTLP = 'otlp';
+    public const VALUE_OTLP_STDOUT = 'otlp/stdout';
     public const VALUE_ZIPKIN = 'zipkin';
     public const VALUE_PROMETHEUS = 'prometheus';
     public const VALUE_WITH_SAMPLED_TRACE = 'with_sampled_trace';
@@ -105,6 +112,8 @@ interface KnownValues
         self::VALUE_BAGGAGE, // W3C Baggage
         self::VALUE_B3, // B3 Single
         self::VALUE_B3_MULTI, // B3 Multi
+        self::VALUE_CLOUD_TRACE, // GCP XCloudTraceContext
+        self::VALUE_CLOUD_TRACE_ONEWAY, // GCP XCloudTraceContext OneWay (Extract)
         self::VALUE_XRAY, // AWS X-Ray (third party)
         self::VALUE_OTTRACE, // OT Trace (third party)
         self::VALUE_NONE, // No automatically configured propagator.
@@ -140,16 +149,19 @@ interface KnownValues
      */
     public const OTEL_TRACES_EXPORTER = [
         self::VALUE_OTLP,
+        self::VALUE_OTLP_STDOUT,
         self::VALUE_ZIPKIN,
         self::VALUE_NONE,
     ];
     public const OTEL_METRICS_EXPORTER = [
         self::VALUE_OTLP,
+        self::VALUE_OTLP_STDOUT,
         self::VALUE_PROMETHEUS,
         self::VALUE_NONE,
     ];
     public const OTEL_LOGS_EXPORTER = [
         self::VALUE_OTLP,
+        self::VALUE_OTLP_STDOUT,
         self::VALUE_NONE,
     ];
     /**
@@ -184,6 +196,8 @@ interface KnownValues
     public const VALUE_DETECTORS_PROCESS_RUNTIME = 'process_runtime';
     public const VALUE_DETECTORS_SDK = 'sdk';
     public const VALUE_DETECTORS_SDK_PROVIDED = 'sdk_provided';
+    public const VALUE_DETECTORS_SERVICE = 'service';
+    public const VALUE_DETECTORS_SERVICE_INSTANCE = 'service_instance';
     public const VALUE_DETECTORS_COMPOSER = 'composer';
     public const OTEL_PHP_DETECTORS = [
         self::VALUE_ALL,
@@ -204,5 +218,9 @@ interface KnownValues
         self::VALUE_PSR3,
         self::VALUE_EMPTY,
         self::VALUE_NONE,
+    ];
+
+    public const OTEL_EXPERIMENTAL_RESPONSE_PROPAGATORS = [
+        self::VALUE_NONE, // No automatically configured propagator.
     ];
 }

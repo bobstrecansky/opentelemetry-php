@@ -5,23 +5,22 @@ declare(strict_types=1);
 namespace OpenTelemetry\Tests\Unit\SDK\Common\Attribute;
 
 use OpenTelemetry\SDK\Common\Attribute\AttributeValidator;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
-/**
- * @covers \OpenTelemetry\SDK\Common\Attribute\AttributeValidator
- */
+#[CoversClass(AttributeValidator::class)]
 class AttributeValidatorTest extends TestCase
 {
     private AttributeValidator $validator;
 
+    #[\Override]
     public function setUp(): void
     {
         $this->validator = new AttributeValidator();
     }
 
-    /**
-     * @dataProvider primitiveProvider
-     */
+    #[DataProvider('primitiveProvider')]
     public function test_validate_primitives($value): void
     {
         $this->assertTrue($this->validator->validate($value));
@@ -38,9 +37,7 @@ class AttributeValidatorTest extends TestCase
         ];
     }
 
-    /**
-     * @dataProvider nonPrimitiveProvider
-     */
+    #[DataProvider('nonPrimitiveProvider')]
     public function test_validate_non_primitives($value): void
     {
         $this->assertFalse($this->validator->validate($value));
@@ -55,9 +52,7 @@ class AttributeValidatorTest extends TestCase
         ];
     }
 
-    /**
-     * @dataProvider arrayProvider
-     */
+    #[DataProvider('arrayProvider')]
     public function test_validate_array($value, bool $expected): void
     {
         $this->assertSame($expected, $this->validator->validate($value));

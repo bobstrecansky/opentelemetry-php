@@ -10,8 +10,8 @@ use function random_int;
 
 final class FixedSizeReservoir implements ExemplarReservoirInterface
 {
-    private BucketStorage $storage;
-    private int $size;
+    private readonly BucketStorage $storage;
+    private readonly int $size;
     private int $measurements = 0;
 
     public function __construct(int $size = 4)
@@ -20,6 +20,7 @@ final class FixedSizeReservoir implements ExemplarReservoirInterface
         $this->size = $size;
     }
 
+    #[\Override]
     public function offer($index, $value, AttributesInterface $attributes, ContextInterface $context, int $timestamp): void
     {
         $bucket = random_int(0, $this->measurements);
@@ -29,6 +30,7 @@ final class FixedSizeReservoir implements ExemplarReservoirInterface
         }
     }
 
+    #[\Override]
     public function collect(array $dataPointAttributes): array
     {
         $this->measurements = 0;

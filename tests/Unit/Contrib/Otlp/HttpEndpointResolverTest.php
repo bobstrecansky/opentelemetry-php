@@ -9,11 +9,11 @@ use InvalidArgumentException;
 use OpenTelemetry\API\Signals;
 use OpenTelemetry\Contrib\Otlp\HttpEndpointResolver;
 use OpenTelemetry\Contrib\Otlp\HttpEndpointResolverInterface;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
-/**
- * @covers \OpenTelemetry\Contrib\Otlp\HttpEndpointResolver
- */
+#[CoversClass(HttpEndpointResolver::class)]
 class HttpEndpointResolverTest extends TestCase
 {
     private const SIGNALS = [
@@ -31,9 +31,7 @@ class HttpEndpointResolverTest extends TestCase
         'https',
     ];
 
-    /**
-     * @dataProvider provideEndpoints
-     */
+    #[DataProvider('provideEndpoints')]
     public function test_normalize(string $baseEndpoint, string $signal, string $expectedEndpoint): void
     {
         $this->assertSame(
@@ -43,9 +41,7 @@ class HttpEndpointResolverTest extends TestCase
         );
     }
 
-    /**
-     * @dataProvider provideSignals
-     */
+    #[DataProvider('provideSignals')]
     public function test_normalize_throws_exception_on_invalid_scheme(string $signal): void
     {
         $this->expectException(InvalidArgumentException::class);
@@ -54,9 +50,7 @@ class HttpEndpointResolverTest extends TestCase
             ->resolve('foo://collector', $signal);
     }
 
-    /**
-     * @dataProvider provideSchemes
-     */
+    #[DataProvider('provideSchemes')]
     public function test_normalize_throws_exception_on_invalid_signal(string $scheme): void
     {
         $this->expectException(InvalidArgumentException::class);
@@ -65,9 +59,7 @@ class HttpEndpointResolverTest extends TestCase
             ->resolve($scheme . '://collector', 'foo');
     }
 
-    /**
-     * @dataProvider provideSignals
-     */
+    #[DataProvider('provideSignals')]
     public function test_normalize_throws_exception_on_invalid_url(string $signal): void
     {
         $this->expectException(InvalidArgumentException::class);
@@ -76,7 +68,7 @@ class HttpEndpointResolverTest extends TestCase
             ->resolve('/\/', $signal);
     }
 
-    public function provideEndpoints(): Generator
+    public static function provideEndpoints(): Generator
     {
         foreach (self::DEFAULT_PATHS as $signal => $path) {
             $baseEndpoint = 'http://collector';
@@ -102,9 +94,7 @@ class HttpEndpointResolverTest extends TestCase
         }
     }
 
-    /**
-     * @dataProvider provideReferences
-     */
+    #[DataProvider('provideReferences')]
     public function test_references_are_correct(array $values, array $reference): void
     {
         $this->assertSame(
@@ -113,14 +103,14 @@ class HttpEndpointResolverTest extends TestCase
         );
     }
 
-    public function provideSignals(): Generator
+    public static function provideSignals(): Generator
     {
         foreach (self::SIGNALS as $signal) {
             yield [$signal];
         }
     }
 
-    public function provideSchemes(): Generator
+    public static function provideSchemes(): Generator
     {
         foreach (self::VALID_SCHEMES as $scheme) {
             yield [$scheme];

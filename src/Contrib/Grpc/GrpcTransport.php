@@ -18,6 +18,7 @@ use const Grpc\OP_SEND_INITIAL_METADATA;
 use const Grpc\OP_SEND_MESSAGE;
 use const Grpc\STATUS_OK;
 use Grpc\Timeval;
+use OpenTelemetry\Contrib\Otlp\ContentTypes;
 use OpenTelemetry\SDK\Common\Export\TransportInterface;
 use OpenTelemetry\SDK\Common\Future\CancellationInterface;
 use OpenTelemetry\SDK\Common\Future\CompletedFuture;
@@ -34,34 +35,38 @@ use Throwable;
  */
 final class GrpcTransport implements TransportInterface
 {
-    private array $metadata;
-    private Channel $channel;
-    private string $method;
+    private const MICROS_PER_MILLISECOND = 1_000;
+    private readonly array $metadata;
+    private readonly Channel $channel;
     private bool $closed = false;
+    private readonly Timeval $exportTimeout;
 
     public function __construct(
         string $endpoint,
         array $opts,
-        string $method,
-        array $headers = []
+        private readonly string $method,
+        array $headers = [],
+        int $timeoutMillis = 500,
     ) {
         $this->channel = new Channel($endpoint, $opts);
-        $this->method = $method;
         $this->metadata = $this->formatMetadata(array_change_key_case($headers));
+        $this->exportTimeout = new Timeval($timeoutMillis * self::MICROS_PER_MILLISECOND);
     }
 
+    #[\Override]
     public function contentType(): string
     {
-        return 'application/x-protobuf';
+        return ContentTypes::PROTOBUF;
     }
 
+    #[\Override]
     public function send(string $payload, ?CancellationInterface $cancellation = null): FutureInterface
     {
         if ($this->closed) {
             return new ErrorFuture(new BadMethodCallException('Transport closed'));
         }
 
-        $call = new Call($this->channel, $this->method, Timeval::infFuture());
+        $call = new Call($this->channel, $this->method, $this->exportTimeout);
 
         $cancellation ??= new NullCancellation();
         $cancellationId = $cancellation->subscribe(static fn (Throwable $e) => $call->cancel());
@@ -88,6 +93,7 @@ final class GrpcTransport implements TransportInterface
         return new ErrorFuture(new RuntimeException($event->status->details, $event->status->code));
     }
 
+    #[\Override]
     public function shutdown(?CancellationInterface $cancellation = null): bool
     {
         if ($this->closed) {
@@ -100,6 +106,7 @@ final class GrpcTransport implements TransportInterface
         return true;
     }
 
+    #[\Override]
     public function forceFlush(?CancellationInterface $cancellation = null): bool
     {
         return !$this->closed;

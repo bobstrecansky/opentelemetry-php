@@ -11,6 +11,8 @@ parameters:
         # - ./examples TODO: Uncomment this once examples are updated
     excludePaths:
         - tests/TraceContext/W3CTestService
+        - tests/Unit/Config/SDK/Configuration/ExampleSdk
+    reportUnmatchedIgnoredErrors: false
     ignoreErrors:
         -
             message: "#Call to an undefined method .*#"
@@ -33,3 +35,41 @@ parameters:
             message: "#Call to an undefined method .*:expects.*#"
             paths:
                 - tests
+        -
+            message: "#Call to an undefined method Symfony\\\\Component\\\\Config\\\\Definition\\\\Builder\\\\NodeParentInterface::.*#"
+            paths:
+                - src/Config/SDK
+                - tests/Unit/Config
+                - tests/Integration/Config
+        -
+            message: "#Cannot call method .* on null#"
+            paths:
+                - tests/Integration/SDK/Trace
+        -
+            message: "#Property .*Logger.*config .* does not accept .*Config?#"
+            paths:
+                - src/SDK/Logs
+        -
+            message: "#.*return with type T is not subtype.*#"
+            paths:
+                - src/SDK/Common/InstrumentationScope
+        -
+            message: "#.*expects Google\\\\Protobuf\\\\RepeatedField.*#"
+            paths:
+                - src/Contrib/Otlp
+        -
+            message: "#^Call to (static )?method .* on an unknown class .*#"
+            paths:
+                - src/Config/SDK/Configuration/Environment/Adapter/
+        -
+            message: "#^Instantiated class .* not found\\.#"
+            paths:
+                - src/Config/SDK/Configuration/Environment/Adapter/
+        -
+            message: "#^Caught class .* not found\\.#"
+            paths:
+                - src/Config/SDK/Configuration/Environment/Adapter/
+        -
+            message: "#^PHPDoc tag @extends contains generic type .* but class .* is not generic\\.#"
+            paths:
+                - src/Config/SDK/Configuration/Internal/NodeDefinition/

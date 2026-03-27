@@ -4,37 +4,33 @@ declare(strict_types=1);
 
 namespace OpenTelemetry\Tests\Unit\Contrib\Otlp;
 
-use AssertWell\PHPUnitGlobalState\EnvironmentVariables;
 use OpenTelemetry\Contrib\Otlp\LogsExporterFactory;
 use OpenTelemetry\SDK\Common\Configuration\KnownValues;
 use OpenTelemetry\SDK\Common\Configuration\Variables;
 use OpenTelemetry\SDK\Common\Export\TransportFactoryInterface;
 use OpenTelemetry\SDK\Common\Export\TransportInterface;
+use OpenTelemetry\Tests\TestState;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 
-/**
- * @covers \OpenTelemetry\Contrib\Otlp\LogsExporterFactory
- */
+#[CoversClass(LogsExporterFactory::class)]
 class LogsExporterFactoryTest extends TestCase
 {
-    use EnvironmentVariables;
+    use TestState;
 
     /** @var TransportFactoryInterface&MockObject $record */
     private TransportFactoryInterface $transportFactory;
     /** @var TransportInterface&MockObject $record */
     private TransportInterface $transport;
 
+    #[\Override]
     public function setUp(): void
     {
         $this->transportFactory = $this->createMock(TransportFactoryInterface::class);
         $this->transport = $this->createMock(TransportInterface::class);
-    }
-
-    public function tearDown(): void
-    {
-        $this->restoreEnvironmentVariables();
     }
 
     public function test_unknown_protocol_exception(): void
@@ -45,10 +41,8 @@ class LogsExporterFactoryTest extends TestCase
         $factory->create();
     }
 
-    /**
-     * @dataProvider configProvider
-     */
-    public function test_create(array $env, string $endpoint, string $protocol, string $compression, array $headerKeys = []): void
+    #[DataProvider('configProvider')]
+    public function test_create(array $env, string $endpoint, string $protocol, string $compression, array $headerKeys = [], array $expectedValues = []): void
     {
         foreach ($env as $k => $v) {
             $this->setEnvironmentVariable($k, $v);
@@ -61,8 +55,11 @@ class LogsExporterFactoryTest extends TestCase
             ->with(
                 $this->equalTo($endpoint),
                 $this->equalTo($protocol),
-                $this->callback(function ($headers) use ($headerKeys) {
+                $this->callback(function ($headers) use ($headerKeys, $expectedValues) {
                     $this->assertEqualsCanonicalizing($headerKeys, array_keys($headers));
+                    foreach ($expectedValues as $key => $value) {
+                        $this->assertSame($value, $headers[$key]);
+                    }
 
                     return true;
                 }),
@@ -160,6 +157,18 @@ class LogsExporterFactoryTest extends TestCase
                 'protocol' => 'application/x-protobuf',
                 'compression' => 'none',
                 'headerKeys' => array_merge($defaultHeaderKeys, ['key3', 'key4']),
+            ],
+            'url-encoded headers' => [
+                'env' => [
+                    Variables::OTEL_EXPORTER_OTLP_HEADERS => 'Authorization=Basic%20AAA',
+                ],
+                'endpoint' => 'http://localhost:4318/v1/logs',
+                'protocol' => 'application/x-protobuf',
+                'compression' => 'none',
+                'headerKeys' => array_merge($defaultHeaderKeys, ['Authorization']),
+                'expectedValues' => [
+                    'Authorization' => 'Basic AAA',
+                ],
             ],
         ];
     }

@@ -10,23 +10,12 @@ use OpenTelemetry\Context\Context;
 use OpenTelemetry\Context\ContextInterface;
 use OpenTelemetry\SDK\Common\Attribute\AttributesBuilderInterface;
 use OpenTelemetry\SDK\Common\Instrumentation\InstrumentationScopeInterface;
+use OpenTelemetry\SDK\Trace\SpanSuppression\NoopSuppressionStrategy\NoopSuppressor;
+use OpenTelemetry\SDK\Trace\SpanSuppression\SpanSuppressor;
 
 final class SpanBuilder implements API\SpanBuilderInterface
 {
-    /**
-     * @var non-empty-string
-     * @readonly
-     */
-    private string $spanName;
-
-    /** @readonly */
-    private InstrumentationScopeInterface $instrumentationScope;
-
-    /** @readonly */
-    private TracerSharedState $tracerSharedState;
-
-    /** @var ContextInterface|false|null */
-    private $parentContext = null;
+    private ContextInterface|false|null $parentContext = null;
 
     /**
      * @psalm-var API\SpanKind::KIND_*
@@ -42,18 +31,17 @@ final class SpanBuilder implements API\SpanBuilderInterface
 
     /** @param non-empty-string $spanName */
     public function __construct(
-        string $spanName,
-        InstrumentationScopeInterface $instrumentationScope,
-        TracerSharedState $tracerSharedState
+        private readonly string $spanName,
+        private readonly InstrumentationScopeInterface $instrumentationScope,
+        private readonly TracerSharedState $tracerSharedState,
+        private readonly SpanSuppressor $spanSuppressor = new NoopSuppressor(),
     ) {
-        $this->spanName = $spanName;
-        $this->instrumentationScope = $instrumentationScope;
-        $this->tracerSharedState = $tracerSharedState;
-        $this->attributesBuilder = $tracerSharedState->getSpanLimits()->getAttributesFactory()->builder();
+        $this->attributesBuilder = $this->tracerSharedState->getSpanLimits()->getAttributesFactory()->builder();
     }
 
     /** @inheritDoc */
-    public function setParent($context): API\SpanBuilderInterface
+    #[\Override]
+    public function setParent(ContextInterface|false|null $context): API\SpanBuilderInterface
     {
         $this->parentContext = $context;
 
@@ -61,6 +49,7 @@ final class SpanBuilder implements API\SpanBuilderInterface
     }
 
     /** @inheritDoc */
+    #[\Override]
     public function addLink(API\SpanContextInterface $context, iterable $attributes = []): API\SpanBuilderInterface
     {
         if (!$context->isValid()) {
@@ -86,7 +75,8 @@ final class SpanBuilder implements API\SpanBuilderInterface
     }
 
     /** @inheritDoc */
-    public function setAttribute(string $key, $value): API\SpanBuilderInterface
+    #[\Override]
+    public function setAttribute(string $key, mixed $value): API\SpanBuilderInterface
     {
         $this->attributesBuilder[$key] = $value;
 
@@ -94,6 +84,7 @@ final class SpanBuilder implements API\SpanBuilderInterface
     }
 
     /** @inheritDoc */
+    #[\Override]
     public function setAttributes(iterable $attributes): API\SpanBuilderInterface
     {
         foreach ($attributes as $key => $value) {
@@ -108,6 +99,7 @@ final class SpanBuilder implements API\SpanBuilderInterface
      *
      * @psalm-param API\SpanKind::KIND_* $spanKind
      */
+    #[\Override]
     public function setSpanKind(int $spanKind): API\SpanBuilderInterface
     {
         $this->spanKind = $spanKind;
@@ -116,6 +108,7 @@ final class SpanBuilder implements API\SpanBuilderInterface
     }
 
     /** @inheritDoc */
+    #[\Override]
     public function setStartTimestamp(int $timestampNanos): API\SpanBuilderInterface
     {
         if (0 > $timestampNanos) {
@@ -128,11 +121,17 @@ final class SpanBuilder implements API\SpanBuilderInterface
     }
 
     /** @inheritDoc */
+    #[\Override]
     public function startSpan(): API\SpanInterface
     {
         $parentContext = Context::resolve($this->parentContext);
         $parentSpan = Span::fromContext($parentContext);
         $parentSpanContext = $parentSpan->getContext();
+
+        $spanSuppression = $this->spanSuppressor->resolveSuppression($this->spanKind, $this->attributesBuilder->build()->toArray());
+        if ($spanSuppression->isSuppressed($parentContext)) {
+            return Span::wrap($parentSpanContext);
+        }
 
         $spanId = $this->tracerSharedState->getIdGenerator()->generateSpanId();
 
@@ -156,14 +155,20 @@ final class SpanBuilder implements API\SpanBuilderInterface
         $samplingDecision = $samplingResult->getDecision();
         $samplingResultTraceState = $samplingResult->getTraceState();
 
+        $flags = $parentSpanContext->getTraceFlags() & 0x2;
+        if ($samplingDecision === SamplingResult::RECORD_AND_SAMPLE) {
+            $flags |= API\TraceFlags::SAMPLED;
+        }
+
         $spanContext = API\SpanContext::create(
             $traceId,
             $spanId,
-            SamplingResult::RECORD_AND_SAMPLE === $samplingDecision ? API\TraceFlags::SAMPLED : API\TraceFlags::DEFAULT,
+            $flags,
             $samplingResultTraceState,
         );
 
         if (!in_array($samplingDecision, [SamplingResult::RECORD_AND_SAMPLE, SamplingResult::RECORD_ONLY], true)) {
+            // TODO must suppress no-op spans too
             return Span::wrap($spanContext);
         }
 
@@ -185,7 +190,8 @@ final class SpanBuilder implements API\SpanBuilderInterface
             $attributesBuilder,
             $this->links,
             $this->totalNumberOfLinksAdded,
-            $this->startEpochNanos
+            $this->startEpochNanos,
+            $spanSuppression,
         );
     }
 }

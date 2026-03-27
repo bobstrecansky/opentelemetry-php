@@ -6,12 +6,12 @@ namespace OpenTelemetry\Tests\Unit\SDK\Common\Configuration\Parser;
 
 use InvalidArgumentException;
 use OpenTelemetry\SDK\Common\Configuration\Parser\RatioParser;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use RangeException;
 
-/**
- * @covers \OpenTelemetry\SDK\Common\Configuration\Parser\RatioParser
- */
+#[CoversClass(RatioParser::class)]
 class RatioParserTest extends TestCase
 {
     private const RATIO_VALUES = [
@@ -30,9 +30,7 @@ class RatioParserTest extends TestCase
         'too high' => ['1.1'],
     ];
 
-    /**
-     * @dataProvider ratioValueProvider
-     */
+    #[DataProvider('ratioValueProvider')]
     public function test_ratio_values_return_float(string $value): void
     {
         $this->assertIsFloat(
@@ -40,9 +38,7 @@ class RatioParserTest extends TestCase
         );
     }
 
-    /**
-     * @dataProvider nonNumericValueProvider
-     */
+    #[DataProvider('nonNumericValueProvider')]
     public function test_non_numeric_values_throw_exception(string $value): void
     {
         $this->expectException(InvalidArgumentException::class);
@@ -50,9 +46,7 @@ class RatioParserTest extends TestCase
         RatioParser::parse($value);
     }
 
-    /**
-     * @dataProvider outOfRangeValueProvider
-     */
+    #[DataProvider('outOfRangeValueProvider')]
     public function test_out_of_range_values_throw_exception(string $value): void
     {
         $this->expectException(RangeException::class);
@@ -60,17 +54,17 @@ class RatioParserTest extends TestCase
         RatioParser::parse($value);
     }
 
-    public function ratioValueProvider(): array
+    public static function ratioValueProvider(): array
     {
         return self::RATIO_VALUES;
     }
 
-    public function nonNumericValueProvider(): array
+    public static function nonNumericValueProvider(): array
     {
         return self::NON_NUMERIC_VALUES;
     }
 
-    public function outOfRangeValueProvider(): array
+    public static function outOfRangeValueProvider(): array
     {
         return self::OUT_OF_RANGE_VALUES;
     }

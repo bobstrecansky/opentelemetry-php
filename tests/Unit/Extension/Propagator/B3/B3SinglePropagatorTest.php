@@ -13,11 +13,11 @@ use OpenTelemetry\Context\ContextInterface;
 use OpenTelemetry\Extension\Propagator\B3\B3DebugFlagContextKey;
 use OpenTelemetry\Extension\Propagator\B3\B3SinglePropagator;
 use OpenTelemetry\SDK\Trace\Span;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
-/**
- * @covers \OpenTelemetry\Extension\Propagator\B3\B3SinglePropagator
- */
+#[CoversClass(B3SinglePropagator::class)]
 class B3SinglePropagatorTest extends TestCase
 {
     private const TRACE_ID_BASE16 = 'ff000000000000000000000000000041';
@@ -32,6 +32,10 @@ class B3SinglePropagatorTest extends TestCase
 
     private B3SinglePropagator $b3SinglePropagator;
 
+    /**
+     * @psalm-suppress PossiblyUndefinedArrayOffset
+     */
+    #[\Override]
     protected function setUp(): void
     {
         $this->b3SinglePropagator = B3SinglePropagator::getInstance();
@@ -141,9 +145,7 @@ class B3SinglePropagatorTest extends TestCase
         );
     }
 
-    /**
-     * @dataProvider debugValueProvider
-     */
+    #[DataProvider('debugValueProvider')]
     public function test_extract_debug_context($headerValue): void
     {
         $carrier = [
@@ -246,9 +248,7 @@ class B3SinglePropagatorTest extends TestCase
         );
     }
 
-    /**
-     * @dataProvider invalidSampledValueProvider
-     */
+    #[DataProvider('invalidSampledValueProvider')]
     public function test_extract_invalid_sampled_context($headerValue): void
     {
         $carrier = [
@@ -307,6 +307,7 @@ class B3SinglePropagatorTest extends TestCase
             $this->B3 => '-' . self::SPAN_ID_BASE16 . '-1',
         ]);
     }
+
     public function test_invalid_trace_id(): void
     {
         $this->assertInvalid([

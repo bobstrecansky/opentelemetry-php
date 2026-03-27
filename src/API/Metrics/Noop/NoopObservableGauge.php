@@ -12,8 +12,15 @@ use OpenTelemetry\API\Metrics\ObservableGaugeInterface;
  */
 final class NoopObservableGauge implements ObservableGaugeInterface
 {
+    #[\Override]
     public function observe(callable $callback, bool $weaken = false): ObservableCallbackInterface
     {
         return new NoopObservableCallback();
+    }
+
+    #[\Override]
+    public function isEnabled(): bool
+    {
+        return false;
     }
 }

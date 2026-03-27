@@ -12,17 +12,18 @@ use OpenTelemetry\SDK\Logs\LoggerSharedState;
 use OpenTelemetry\SDK\Logs\LogRecordLimits;
 use OpenTelemetry\SDK\Logs\ReadableLogRecord;
 use OpenTelemetry\SDK\Resource\ResourceInfo;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
-/**
- * @covers \OpenTelemetry\SDK\Logs\ReadableLogRecord
- */
+#[CoversClass(ReadableLogRecord::class)]
 class ReadableLogRecordTest extends TestCase
 {
     private InstrumentationScopeInterface $scope;
     private ContextInterface $context;
     private LoggerSharedState $sharedState;
     private ResourceInfo $resource;
+    #[\Override]
     public function setUp(): void
     {
         $this->scope = $this->createMock(InstrumentationScopeInterface::class);
@@ -58,9 +59,7 @@ class ReadableLogRecordTest extends TestCase
         $this->assertEquals(['foo' => 'bar'], $record->getAttributes()->toArray());
     }
 
-    /**
-     * @group logs-compliance
-     */
+    #[Group('logs-compliance')]
     public function test_log_record_can_accept_complex_attributes(): void
     {
         $homogeneous = [1,2,3,4,5];

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace OpenTelemetry\Tests\Unit\SDK\Common\Configuration;
 
-use AssertWell\PHPUnitGlobalState\EnvironmentVariables;
 use Exception;
 use Generator;
 use OpenTelemetry\SDK\Common\Configuration\Configuration;
@@ -12,15 +11,16 @@ use OpenTelemetry\SDK\Common\Configuration\Defaults;
 use OpenTelemetry\SDK\Common\Configuration\KnownValues;
 use OpenTelemetry\SDK\Common\Configuration\Variables;
 use OpenTelemetry\SDK\Common\Configuration\VariableTypes;
+use OpenTelemetry\Tests\TestState;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use UnexpectedValueException;
 
-/**
- * @covers \OpenTelemetry\SDK\Common\Configuration\Configuration
- */
+#[CoversClass(Configuration::class)]
 class ConfigurationTest extends TestCase
 {
-    use EnvironmentVariables;
+    use TestState;
 
     private const ALLOW_EMPTY = [
         VariableTypes::LIST,
@@ -97,11 +97,6 @@ class ConfigurationTest extends TestCase
         'trace processor' => [Variables::OTEL_PHP_TRACES_PROCESSOR, KnownValues::OTEL_PHP_TRACES_PROCESSOR],
     ];
 
-    public function tearDown(): void
-    {
-        $this->restoreEnvironmentVariables();
-    }
-
     public function test_has_variable_from_environment(): void
     {
         $this->assertFalse(Configuration::has('FOO_VAR'));
@@ -123,7 +118,7 @@ class ConfigurationTest extends TestCase
         Configuration::getInt('OTEL_FOO', 99);
     }
 
-    public function environment_variables_integer_uses_default_if_env_var_not_defined()
+    public function environment_variables_integer_uses_default_if_env_var_not_defined(): void
     {
         $this->assertSame(20, Configuration::getInt('OTEL_FOO', 20));
     }
@@ -137,8 +132,8 @@ class ConfigurationTest extends TestCase
 
     /**
      * The SDK MUST interpret an empty value of an environment variable the same way as when the variable is unset
-     * @dataProvider emptyProvider
      */
+    #[DataProvider('emptyProvider')]
     public function test_string_uses_default_when_empty_value(?string $input): void
     {
         $this->setEnvironmentVariable('OTEL_FOO', $input);
@@ -146,9 +141,7 @@ class ConfigurationTest extends TestCase
         $this->assertSame('bar', $value);
     }
 
-    /**
-     * @dataProvider emptyProvider
-     */
+    #[DataProvider('emptyProvider')]
     public function test_int_uses_default_when_empty_value(?string $input): void
     {
         $this->setEnvironmentVariable('OTEL_FOO', $input);
@@ -156,9 +149,7 @@ class ConfigurationTest extends TestCase
         $this->assertSame(99, $value);
     }
 
-    /**
-     * @dataProvider emptyProvider
-     */
+    #[DataProvider('emptyProvider')]
     public function test_bool_uses_default_when_empty_value(?string $input): void
     {
         $this->setEnvironmentVariable('OTEL_FOO', $input);
@@ -166,7 +157,7 @@ class ConfigurationTest extends TestCase
         $this->assertTrue($value);
     }
 
-    public function emptyProvider()
+    public static function emptyProvider(): array
     {
         return [
             'no value' => [null],
@@ -174,16 +165,14 @@ class ConfigurationTest extends TestCase
         ];
     }
 
-    /**
-     * @dataProvider booleanProvider
-     */
-    public function test_bool_get(string $input, bool $default, bool $expected)
+    #[DataProvider('booleanProvider')]
+    public function test_bool_get(string $input, bool $default, bool $expected): void
     {
         $this->setEnvironmentVariable('OTEL_BOOL', $input);
         $this->assertSame($expected, Configuration::getBoolean('OTEL_BOOL', $default));
     }
 
-    public function booleanProvider()
+    public static function booleanProvider(): array
     {
         return [
             'false' => ['false', true, false],
@@ -193,34 +182,32 @@ class ConfigurationTest extends TestCase
         ];
     }
 
-    public function test_list_get()
+    public function test_list_get(): void
     {
         $this->setEnvironmentVariable('OTEL_LIST', 'a,b,c');
         $this->assertSame(['a', 'b', 'c'], Configuration::getList('OTEL_LIST'));
     }
 
-    public function test_map_get()
+    public function test_map_get(): void
     {
         $this->setEnvironmentVariable('OTEL_MAP', 'a=b,c=d');
         $this->assertSame(['a'=>'b', 'c'=>'d'], Configuration::getMap('OTEL_MAP'));
     }
 
-    public function test_enum_get()
+    public function test_enum_get(): void
     {
         $this->setEnvironmentVariable('OTEL_ENUM', 'foo');
         $this->assertSame('foo', Configuration::getEnum('OTEL_ENUM'));
     }
 
-    public function test_ratio_get()
+    public function test_ratio_get(): void
     {
         $this->setEnvironmentVariable('OTEL_RATIO', '0.5');
         $this->assertSame(0.5, Configuration::getRatio('OTEL_RATIO'));
     }
 
-    /**
-     * @dataProvider userEnvValueProvider
-     */
-    public function test_return_user_env_vars(string $methodName, string $variable, string $value, $result)
+    #[DataProvider('userEnvValueProvider')]
+    public function test_return_user_env_vars(string $methodName, string $variable, string $value, $result): void
     {
         $this->setEnvironmentVariable($variable, $value);
 
@@ -230,10 +217,8 @@ class ConfigurationTest extends TestCase
         );
     }
 
-    /**
-     * @dataProvider userValueProvider
-     */
-    public function test_return_user_default_value(string $methodName, string $variable, $defaultValue, $result)
+    #[DataProvider('userValueProvider')]
+    public function test_return_user_default_value(string $methodName, string $variable, $defaultValue, $result): void
     {
         $this->assertSame(
             $result,
@@ -241,10 +226,8 @@ class ConfigurationTest extends TestCase
         );
     }
 
-    /**
-     * @dataProvider libraryDefaultValueProvider
-     */
-    public function test_return_library_default_value(string $methodName, string $variable, $result)
+    #[DataProvider('libraryDefaultValueProvider')]
+    public function test_return_library_default_value(string $methodName, string $variable, $result): void
     {
         $this->assertSame(
             $result,
@@ -252,37 +235,31 @@ class ConfigurationTest extends TestCase
         );
     }
 
-    /**
-     * @dataProvider nonEmptyMethodNameProvider
-     */
-    public function test_no_value_throws_exception(string $methodName)
+    #[DataProvider('nonEmptyMethodNameProvider')]
+    public function test_no_value_throws_exception(string $methodName): void
     {
         $this->expectException(UnexpectedValueException::class);
 
         call_user_func([Configuration::class, $methodName], 'FOO_BAR_' . $methodName);
     }
 
-    /**
-     * @dataProvider invalidTypeProvider
-     */
-    public function test_invalid_type_throws_exception(string $methodName, string $variable)
+    #[DataProvider('invalidTypeProvider')]
+    public function test_invalid_type_throws_exception(string $methodName, string $variable): void
     {
         $this->expectException(UnexpectedValueException::class);
 
         call_user_func([Configuration::class, $methodName], $variable);
     }
 
-    /**
-     * @dataProvider noDefaultProvider
-     */
-    public function test_null_result_throws_exception(string $methodName, string $variable)
+    #[DataProvider('noDefaultProvider')]
+    public function test_null_result_throws_exception(string $methodName, string $variable): void
     {
         $this->expectException(UnexpectedValueException::class);
 
         call_user_func([Configuration::class, $methodName], $variable);
     }
 
-    public function userValueProvider(): Generator
+    public static function userValueProvider(): Generator
     {
         foreach (self::USER_VALUES as $varType => $values) {
             [$default, $result] = $values;
@@ -296,7 +273,7 @@ class ConfigurationTest extends TestCase
         }
     }
 
-    public function userEnvValueProvider(): Generator
+    public static function userEnvValueProvider(): Generator
     {
         foreach (self::USER_ENV_VALUES as $varType => $values) {
             [$default, $result] = $values;
@@ -310,7 +287,7 @@ class ConfigurationTest extends TestCase
         }
     }
 
-    public function libraryDefaultValueProvider(): Generator
+    public static function libraryDefaultValueProvider(): Generator
     {
         foreach (self::LIBRARY_DEFAULTS as $varType => $values) {
             [$variable, $result] = $values;
@@ -323,7 +300,7 @@ class ConfigurationTest extends TestCase
         }
     }
 
-    public function nonEmptyMethodNameProvider(): Generator
+    public static function nonEmptyMethodNameProvider(): Generator
     {
         foreach (self::METHOD_NAMES as $varType => $names) {
             if (in_array($varType, self::ALLOW_EMPTY)) {
@@ -334,7 +311,7 @@ class ConfigurationTest extends TestCase
         }
     }
 
-    public function invalidTypeProvider(): Generator
+    public static function invalidTypeProvider(): Generator
     {
         foreach (self::METHOD_NAMES as $varType => $names) {
             if ($varType === VariableTypes::MIXED) {
@@ -352,7 +329,7 @@ class ConfigurationTest extends TestCase
         }
     }
 
-    public function noDefaultProvider(): Generator
+    public static function noDefaultProvider(): Generator
     {
         foreach (self::NO_DEFAULTS as $varType => $values) {
             if (in_array($varType, self::ALLOW_EMPTY)) {
@@ -369,9 +346,7 @@ class ConfigurationTest extends TestCase
         $this->assertSame(0.0, $value);
     }
 
-    /**
-     * @dataProvider knownValuesProvider
-     */
+    #[DataProvider('knownValuesProvider')]
     public function test_get_known_values(string $varName, array $varValue): void
     {
         $this->assertSame(
@@ -380,7 +355,7 @@ class ConfigurationTest extends TestCase
         );
     }
 
-    public function knownValuesProvider(): array
+    public static function knownValuesProvider(): array
     {
         return self::KNOWN_VALUES;
     }
@@ -400,9 +375,7 @@ class ConfigurationTest extends TestCase
         );
     }
 
-    /**
-     * @dataProvider typeProvider
-     */
+    #[DataProvider('typeProvider')]
     public function test_get_type(string $varName, string $type): void
     {
         $this->assertSame(
@@ -411,7 +384,7 @@ class ConfigurationTest extends TestCase
         );
     }
 
-    public function typeProvider(): array
+    public static function typeProvider(): array
     {
         return [
             'bool' => ['OTEL_EXPORTER_OTLP_INSECURE', VariableTypes::BOOL],
@@ -424,9 +397,7 @@ class ConfigurationTest extends TestCase
         ];
     }
 
-    /**
-     * @dataProvider defaultValueProvider
-     */
+    #[DataProvider('defaultValueProvider')]
     public function test_get_default_value_with_empty_var(string $varName, $varValue): void
     {
         $this->setEnvironmentVariable($varName, '');
@@ -437,9 +408,7 @@ class ConfigurationTest extends TestCase
         );
     }
 
-    /**
-     * @dataProvider defaultValueProvider
-     */
+    #[DataProvider('defaultValueProvider')]
     public function test_get_default_value(string $varName, $varValue): void
     {
         $this->assertSame(
@@ -448,14 +417,12 @@ class ConfigurationTest extends TestCase
         );
     }
 
-    public function defaultValueProvider(): array
+    public static function defaultValueProvider(): array
     {
         return self::DEFAULT_VALUES;
     }
 
-    /**
-     * @dataProvider nonStringProvider
-     */
+    #[DataProvider('nonStringProvider')]
     public function test_get_non_string_value(string $method, $value): void
     {
         $_SERVER['OTEL_FOO'] = $value;
@@ -463,7 +430,7 @@ class ConfigurationTest extends TestCase
         $this->assertSame($value, call_user_func([Configuration::class, $method], 'OTEL_FOO'));
     }
 
-    public function nonStringProvider(): array
+    public static function nonStringProvider(): array
     {
         return [
             ['getFloat', 3.14159],

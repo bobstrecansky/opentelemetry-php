@@ -8,12 +8,13 @@ use OpenTelemetry\SDK\Logs\LoggerSharedState;
 use OpenTelemetry\SDK\Logs\LogRecordLimits;
 use OpenTelemetry\SDK\Logs\LogRecordProcessorInterface;
 use OpenTelemetry\SDK\Resource\ResourceInfo;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 
 /**
- * @covers \OpenTelemetry\SDK\Logs\LoggerSharedState
  * @psalm-suppress UndefinedInterfaceMethod
  */
+#[CoversClass(LoggerSharedState::class)]
 class LoggerSharedStateTest extends TestCase
 {
     private ResourceInfo $resource;
@@ -21,6 +22,7 @@ class LoggerSharedStateTest extends TestCase
     private LogRecordLimits $limits;
     private LoggerSharedState $loggerSharedState;
 
+    #[\Override]
     public function setUp(): void
     {
         $this->resource = $this->createMock(ResourceInfo::class);
