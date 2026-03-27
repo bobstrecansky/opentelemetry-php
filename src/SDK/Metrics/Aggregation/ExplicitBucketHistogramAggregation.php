@@ -146,12 +146,20 @@ final class ExplicitBucketHistogramAggregation implements AggregationInterface
     private static function min(float|int $left, float|int $right): float|int
     {
         /** @noinspection PhpConditionAlreadyCheckedInspection */
-        return $left <= $right ? $left : ($right <= $left ? $right : NAN);
+        if ($left <= $right) {
+            return $left;
+        }
+
+        return $right <= $left ? $right : NAN;
     }
 
     private static function max(float|int $left, float|int $right): float|int
     {
         /** @noinspection PhpConditionAlreadyCheckedInspection */
-        return $left >= $right ? $left : ($right >= $left ? $right : NAN);
+        if ($left >= $right) {
+            return $left;
+        }
+
+        return $right >= $left ? $right : NAN;
     }
 }

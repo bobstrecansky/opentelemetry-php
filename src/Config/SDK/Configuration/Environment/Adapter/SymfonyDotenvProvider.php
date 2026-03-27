@@ -28,6 +28,7 @@ final class SymfonyDotenvProvider implements EnvSourceProvider
         try {
             (new Dotenv())->bootEnv($installPath . '/.env');
             $env = $_SERVER;
+        // @mago-expect lint:no-empty-catch-clause -- .env file may not exist
         } catch (PathException) {
         } finally {
             [$_SERVER, $_ENV] = $backup;

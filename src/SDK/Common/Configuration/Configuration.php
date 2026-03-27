@@ -55,7 +55,11 @@ class Configuration
         $resolved = self::validateVariableValue(
             CompositeResolver::instance()->resolve(
                 self::validateVariableType($key, VariableTypes::BOOL),
-                null === $default ? $default : ($default ? 'true' : 'false')
+                match (true) {
+                    null === $default => $default,
+                    $default => 'true',
+                    default => 'false',
+                }
             )
         );
 

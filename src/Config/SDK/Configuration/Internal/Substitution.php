@@ -110,6 +110,7 @@ final class Substitution
                     $processor($s, $d + 1, $n, new EnvSourceReader([]));
                     $candidate = $name;
                     $minScore = $score;
+                // @mago-expect lint:no-empty-catch-clause -- testing if substitution prefix is valid
                 } catch (InvalidArgumentException) {
                 }
             }

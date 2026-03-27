@@ -90,6 +90,7 @@ final class PsrTransport implements TransportInterface
                 if ($response->getStatusCode() >= 400 && $response->getStatusCode() < 500 && !in_array($response->getStatusCode(), [408, 429], true)) {
                     throw new RuntimeException($response->getReasonPhrase(), $response->getStatusCode());
                 }
+            // @mago-expect lint:no-empty-catch-clause -- retryable network error
             } catch (NetworkExceptionInterface $e) {
             } catch (Throwable $e) {
                 return new ErrorFuture($e);
