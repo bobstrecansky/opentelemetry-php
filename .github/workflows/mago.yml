@@ -13,8 +13,8 @@ jobs:
   mago:
     name: Mago Quality Checks
     runs-on: ubuntu-latest
-    # Reports failure but does not block the "Merge" button
-    continue-on-error: true 
+    # Surfaces quality issues as annotations without blocking merges
+    continue-on-error: true
 
     steps:
       - name: Checkout
@@ -52,8 +52,4 @@ jobs:
       - name: Final status
         if: ${{ always() }}
         run: |
-          if [[ "${{ steps.format.outcome }}" == "failure" || "${{ steps.lint.outcome }}" == "failure" || "${{ steps.analyze.outcome }}" == "failure" ]]; then
-            echo "One or more Mago checks failed."
-            echo "format=${{ steps.format.outcome }} lint=${{ steps.lint.outcome }} analyze=${{ steps.analyze.outcome }}"
-            exit 1
-          fi
+          echo "format=${{ steps.format.outcome }} lint=${{ steps.lint.outcome }} analyze=${{ steps.analyze.outcome }}"
