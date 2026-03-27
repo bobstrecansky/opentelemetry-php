@@ -274,6 +274,7 @@ class SdkAutoloader
     private static function getHookManager(): HookManagerInterface
     {
         /** @var HookManagerInterface $hookManager */
+        // @mago-expect lint:loop-does-not-iterate -- intentional: return first registered hook manager
         foreach (ServiceLoader::load(HookManagerInterface::class) as $hookManager) {
             return $hookManager;
         }

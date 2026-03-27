@@ -181,6 +181,7 @@ final class StreamFactory implements MetricFactoryInterface
     {
         try {
             return serialize($object);
+        // @mago-expect lint:no-empty-catch-clause -- fallback to object id if not serializable
         } catch (Throwable) {
         }
 

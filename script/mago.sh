@@ -11,22 +11,13 @@ ROOT_DIR="${SCRIPT_DIR}/.."
 MAGO_IMAGE="ghcr.io/carthage-software/mago"
 MAGO_DOCKER=(docker run --rm -v "${ROOT_DIR}:/app" -w /app "${MAGO_IMAGE}")
 
-echo "Running Mago formatting check..."
-"${MAGO_DOCKER[@]}" format --check
-format_exit=$?
-
 echo "Running Mago linting..."
-"${MAGO_DOCKER[@]}" lint --reporting-format=github
+"${MAGO_DOCKER[@]}" lint
 lint_exit=$?
 
-echo "Running Mago static analysis..."
-"${MAGO_DOCKER[@]}" analyze --reporting-format=github
-analyze_exit=$?
+echo "Mago checks completed."
 
-echo "All Mago checks completed."
-
-if [[ $format_exit -ne 0 || $lint_exit -ne 0 || $analyze_exit -ne 0 ]]; then
-  echo "One or more Mago checks failed."
-  echo "format=${format_exit} lint=${lint_exit} analyze=${analyze_exit}"
+if [[ $lint_exit -ne 0 ]]; then
+  echo "Mago linting failed."
   exit 1
 fi

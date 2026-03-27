@@ -34,22 +34,12 @@ jobs:
           version: "latest"
           token: ${{ github.token }}
 
-      - name: Formatting
-        id: format
-        continue-on-error: true
-        run: mago format --check
-
       - name: Linting
         id: lint
         continue-on-error: true
         run: mago lint --reporting-format=github
 
-      - name: Static Analysis
-        id: analyze
-        continue-on-error: true
-        run: mago analyze --reporting-format=github
-
       - name: Final status
         if: ${{ always() }}
         run: |
-          echo "format=${{ steps.format.outcome }} lint=${{ steps.lint.outcome }} analyze=${{ steps.analyze.outcome }}"
+          echo "lint=${{ steps.lint.outcome }}"

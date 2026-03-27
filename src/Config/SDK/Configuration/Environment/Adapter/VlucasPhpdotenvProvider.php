@@ -24,6 +24,7 @@ final class VlucasPhpdotenvProvider implements EnvSourceProvider
 
         try {
             $env = Dotenv::createImmutable([InstalledVersions::getRootPackage()['install_path']])->load();
+        // @mago-expect lint:no-empty-catch-clause -- .env file may not exist
         } catch (InvalidPathException) {
         } finally {
             [$_SERVER, $_ENV] = $backup;
