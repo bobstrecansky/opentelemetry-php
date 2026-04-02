@@ -60,7 +60,7 @@ This is a **monorepo** — packages are distributed to Packagist individually vi
 ### Key Architectural Patterns
 
 - **API/SDK separation**: `API/` defines interfaces and noops; `SDK/` provides real implementations. User code should depend on API only.
-- **SPI plugin discovery**: Plugins register via `composer.json` `extra.opentelemetry.interfaces` for auto-discovery.
+- **SPI plugin discovery**: Plugins register via `composer.json` `extra.spi` for auto-discovery.
 - **Late binding**: Providers can be registered after app startup; noop implementations handle the uninitialized state.
 - **Architectural layers**: `deptrac.yaml` enforces that `API` cannot depend on `SDK`, `Contrib`, etc. Run `make deptrac` to validate.
 
