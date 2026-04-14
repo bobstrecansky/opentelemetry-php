@@ -15,6 +15,8 @@ use OpenTelemetry\SDK\Common\Export\Http\PsrUtils;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\StreamInterface;
 use function time;
 use UnexpectedValueException;
 
@@ -75,7 +77,7 @@ final class PsrUtilsTest extends TestCase
 
     public function test_decode_stream(): void
     {
-        $value = PsrUtils::decode(gzencode('abc'), ['gzip']);
+        $value = PsrUtils::decode(self::makeStreamResponse(gzencode('abc')), ['gzip']);
         $this->assertSame('abc', $value);
     }
 
@@ -89,12 +91,12 @@ final class PsrUtilsTest extends TestCase
     {
         $this->expectException(UnexpectedValueException::class);
 
-        PsrUtils::decode('foo', ['invalid']);
+        PsrUtils::decode(self::makeStreamResponse('foo'), ['invalid']);
     }
 
     public function test_decode_empty_value(): void
     {
-        $this->assertSame('', PsrUtils::decode('', ['gzip']));
+        $this->assertSame('', PsrUtils::decode(self::makeStreamResponse(''), ['gzip']));
     }
 
     #[DataProvider('compressionProvider')]
@@ -112,5 +114,94 @@ final class PsrUtilsTest extends TestCase
             ['gzip , brotli', ['gzip','brotli']],
             [['gzip'], ['gzip']],
         ];
+    }
+
+    private static function makeStreamResponse(string $bodyContent): ResponseInterface
+    {
+        $stream = new class($bodyContent) implements StreamInterface {
+            private int $offset = 0;
+
+            public function __construct(private readonly string $data)
+            {
+            }
+
+            public function __toString(): string
+            {
+                return $this->data;
+            }
+
+            public function close(): void
+            {
+            }
+
+            public function detach()
+            {
+                return null;
+            }
+
+            public function getSize(): ?int
+            {
+                return strlen($this->data);
+            }
+
+            public function tell(): int
+            {
+                return $this->offset;
+            }
+
+            public function eof(): bool
+            {
+                return $this->offset >= strlen($this->data);
+            }
+
+            public function isSeekable(): bool
+            {
+                return false;
+            }
+
+            public function seek(int $offset, int $whence = SEEK_SET): void
+            {
+            }
+
+            public function rewind(): void
+            {
+                $this->offset = 0;
+            }
+
+            public function isWritable(): bool
+            {
+                return false;
+            }
+
+            public function write(string $string): int
+            {
+                return 0;
+            }
+
+            public function isReadable(): bool
+            {
+                return true;
+            }
+
+            public function read(int $length): string
+            {
+                $chunk = substr($this->data, $this->offset, $length);
+                $this->offset += strlen($chunk);
+
+                return $chunk;
+            }
+
+            public function getContents(): string
+            {
+                return substr($this->data, $this->offset);
+            }
+
+            public function getMetadata(?string $key = null)
+            {
+                return $key === null ? [] : null;
+            }
+        };
+
+        return new Response(200, [], $stream);
     }
 }

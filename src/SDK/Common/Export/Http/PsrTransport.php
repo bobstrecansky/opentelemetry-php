@@ -4,137 +4,155 @@ declare(strict_types=1);
 
 namespace OpenTelemetry\SDK\Common\Export\Http;
 
-use Http\Discovery\Psr17FactoryDiscovery;
+use function assert;
+use BadMethodCallException;
+use function explode;
+use function in_array;
+use OpenTelemetry\SDK\Common\Export\TransportInterface;
 use OpenTelemetry\SDK\Common\Future\CancellationInterface;
 use OpenTelemetry\SDK\Common\Future\CompletedFuture;
 use OpenTelemetry\SDK\Common\Future\ErrorFuture;
 use OpenTelemetry\SDK\Common\Future\FutureInterface;
 use Psr\Http\Client\ClientInterface;
+use Psr\Http\Client\NetworkExceptionInterface;
 use Psr\Http\Message\RequestFactoryInterface;
-use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\StreamFactoryInterface;
+use RuntimeException;
+use function strtolower;
 use Throwable;
+use function time_nanosleep;
+use function trim;
 
 /**
- * PSR-7/PSR-18 HTTP transport for OTLP/HTTP exporters.
- *
- * ### Response body size limiting (issue #1932)
- *
- * All response body reads are funnelled through
- * {@see PsrUtils::readBodyWithSizeLimit()}, which caps consumption at 4 MiB.
- * This prevents a misconfigured or malicious collector from causing unbounded
- * memory growth in the PHP process.
+ * @psalm-template CONTENT_TYPE of string
+ * @template-implements TransportInterface<CONTENT_TYPE>
  */
-final class PsrTransport
+final class PsrTransport implements TransportInterface
 {
-    private ClientInterface $client;
-    private RequestFactoryInterface $requestFactory;
-    private StreamFactoryInterface $streamFactory;
-    private string $endpoint;
-    private string $contentType;
+    private bool $closed = false;
 
-    /** @var array<string,string> */
-    private array $headers;
-    private string $compression;
-
+    /**
+     * @psalm-param CONTENT_TYPE $contentType
+     */
     public function __construct(
-        ClientInterface $client,
-        RequestFactoryInterface $requestFactory,
-        StreamFactoryInterface $streamFactory,
-        string $endpoint,
-        string $contentType,
-        array $headers = [],
-        string $compression = 'none'
+        private readonly ClientInterface $client,
+        private readonly RequestFactoryInterface $requestFactory,
+        private readonly StreamFactoryInterface $streamFactory,
+        private readonly string $endpoint,
+        private readonly string $contentType,
+        private readonly array $headers,
+        private readonly array $compression,
+        private readonly int $retryDelay,
+        private readonly int $maxRetries,
     ) {
-        $this->client = $client;
-        $this->requestFactory = $requestFactory;
-        $this->streamFactory = $streamFactory;
-        $this->endpoint = $endpoint;
-        $this->contentType = $contentType;
-        $this->headers = $headers;
-        $this->compression = $compression;
+    }
+
+    #[\Override]
+    public function contentType(): string
+    {
+        return $this->contentType;
     }
 
     /**
-     * Send $payload to the OTLP endpoint and return a Future that resolves to
-     * the (size-limited, decoded) response body string.
-     *
-     * @param string $payload Serialised protobuf or JSON export request.
-     *
-     * @return FutureInterface<string>
+     * @psalm-suppress ArgumentTypeCoercion
      */
+    #[\Override]
     public function send(string $payload, ?CancellationInterface $cancellation = null): FutureInterface
     {
-        try {
-            $request = $this->buildRequest($payload);
-            $response = $this->client->sendRequest($request);
+        if ($this->closed) {
+            return new ErrorFuture(new BadMethodCallException('Transport closed'));
+        }
 
-            return new CompletedFuture($this->handleResponse($response));
+        $body = PsrUtils::encode($payload, $this->compression, $appliedEncodings);
+        $request = $this->requestFactory
+            ->createRequest('POST', $this->endpoint)
+            ->withBody($this->streamFactory->createStream($body))
+            ->withHeader('Content-Type', $this->contentType)
+        ;
+        if ($appliedEncodings) {
+            $request = $request->withHeader('Content-Encoding', $appliedEncodings);
+        }
+        foreach ($this->headers as $header => $value) {
+            $request = $request->withAddedHeader($header, $value);
+        }
+
+        for ($retries = 0;; $retries++) {
+            $response = null;
+            $e = null;
+
+            try {
+                $response = $this->client->sendRequest($request);
+                if ($response->getStatusCode() >= 200 && $response->getStatusCode() < 300) {
+                    break;
+                }
+
+                if ($response->getStatusCode() >= 400 && $response->getStatusCode() < 500 && !in_array($response->getStatusCode(), [408, 429], true)) {
+                    throw new RuntimeException($response->getReasonPhrase(), $response->getStatusCode());
+                }
+            } catch (NetworkExceptionInterface $e) {
+            } catch (Throwable $e) {
+                return new ErrorFuture($e);
+            }
+
+            if ($retries >= $this->maxRetries) {
+                return new ErrorFuture(new RuntimeException('Export retry limit exceeded', 0, $e));
+            }
+
+            $delay = PsrUtils::retryDelay($retries, $this->retryDelay, $response);
+            $sec = (int) $delay;
+            $nsec = (int) (($delay - (float) $sec) * 1e9);
+
+            /** @psalm-suppress ArgumentTypeCoercion */
+            if (time_nanosleep($sec, $nsec) !== true) {
+                return new ErrorFuture(new RuntimeException('Export cancelled', 0, $e));
+            }
+        }
+
+        assert(isset($response));
+
+        try {
+            $body = PsrUtils::decode(
+                $response,
+                self::parseContentEncoding($response),
+            );
         } catch (Throwable $e) {
             return new ErrorFuture($e);
         }
-    }
 
-    // -------------------------------------------------------------------------
-    // Private helpers
-    // -------------------------------------------------------------------------
-
-    private function buildRequest(string $payload): RequestInterface
-    {
-        $body = $payload;
-
-        if ($this->compression === 'gzip') {
-            $body = gzencode($payload);
-        }
-
-        $stream = $this->streamFactory->createStream($body);
-
-        $request = $this->requestFactory
-            ->createRequest('POST', $this->endpoint)
-            ->withBody($stream)
-            ->withHeader('Content-Type', $this->contentType);
-
-        if ($this->compression === 'gzip') {
-            $request = $request->withHeader('Content-Encoding', 'gzip');
-        }
-
-        foreach ($this->headers as $name => $value) {
-            $request = $request->withHeader($name, $value);
-        }
-
-        return $request;
+        return new CompletedFuture($body);
     }
 
     /**
-     * Read and decode the response body, subject to the 4 MiB limit defined
-     * by {@see ResponseBodySizeLimit::MAX_BYTES}.
-     *
-     * For non-2xx responses an exception is thrown so the exporter can apply
-     * its retry / drop logic.
-     *
-     * @throws TransportResponseException on HTTP error status codes.
+     * @return list<string>
      */
-    private function handleResponse(ResponseInterface $response): string
+    private static function parseContentEncoding(ResponseInterface $response): array
     {
-        $statusCode = $response->getStatusCode();
-
-        // Always read (and limit) the body first — we need it for error details.
-        $body = PsrUtils::decode($response);
-
-        if ($statusCode >= 200 && $statusCode < 300) {
-            return $body;
+        $encodings = [];
+        foreach (explode(',', $response->getHeaderLine('Content-Encoding')) as $encoding) {
+            if (($encoding = trim($encoding, " \t")) !== '') {
+                $encodings[] = strtolower($encoding);
+            }
         }
 
-        throw new TransportResponseException(
-            $statusCode,
-            $body,
-            sprintf(
-                'OTLP export failed with HTTP %d. Body (up to %d bytes): %s',
-                $statusCode,
-                ResponseBodySizeLimit::MAX_BYTES,
-                $body !== '' ? $body : '(empty)'
-            )
-        );
+        return $encodings;
+    }
+
+    #[\Override]
+    public function shutdown(?CancellationInterface $cancellation = null): bool
+    {
+        if ($this->closed) {
+            return false;
+        }
+
+        $this->closed = true;
+
+        return true;
+    }
+
+    #[\Override]
+    public function forceFlush(?CancellationInterface $cancellation = null): bool
+    {
+        return !$this->closed;
     }
 }
